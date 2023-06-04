@@ -5,7 +5,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/Xacor/go-metrics/internal/model"
+	"github.com/Xacor/go-metrics/internal/server/model"
 )
 
 type MetricRepo interface {
@@ -65,11 +65,9 @@ func (mem *MemStorage) Update(metric model.Metric) (model.Metric, error) {
 	var err error
 	switch obj.Type {
 	case model.Counter:
-		log.Println("counter type add")
 		err = obj.Add(metric.Value)
 
 	case model.Guage:
-		log.Println("gauge type set")
 		err = obj.Set(metric.Value)
 	}
 

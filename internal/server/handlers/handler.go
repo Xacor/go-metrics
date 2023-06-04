@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/Xacor/go-metrics/internal/model"
-	"github.com/Xacor/go-metrics/internal/storage"
+	"github.com/Xacor/go-metrics/internal/server/model"
+	"github.com/Xacor/go-metrics/internal/server/storage"
 )
 
 type API struct {

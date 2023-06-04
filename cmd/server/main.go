@@ -4,9 +4,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/Xacor/go-metrics/internal/handlers"
-	"github.com/Xacor/go-metrics/internal/middleware"
-	"github.com/Xacor/go-metrics/internal/storage"
+	"github.com/Xacor/go-metrics/internal/server/handlers"
+	"github.com/Xacor/go-metrics/internal/server/middleware"
+	"github.com/Xacor/go-metrics/internal/server/storage"
 )
 
 const (

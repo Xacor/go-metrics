@@ -2,8 +2,6 @@ package model
 
 import (
 	"errors"
-	"log"
-	"reflect"
 )
 
 type MetricType int
@@ -20,8 +18,6 @@ type Metric struct {
 }
 
 func (m *Metric) Set(value interface{}) error {
-	log.Println(reflect.TypeOf(value).String())
-	log.Println("set")
 	v, ok := value.(float64)
 	if !ok {
 		return errors.New("unexpected type")
