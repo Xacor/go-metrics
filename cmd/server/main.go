@@ -1,3 +1,29 @@
 package main
 
-func main() {}
+import (
+	"log"
+	"net/http"
+
+	"github.com/Xacor/go-metrics/internal/handlers"
+	"github.com/Xacor/go-metrics/internal/middleware"
+	"github.com/Xacor/go-metrics/internal/storage"
+)
+
+const (
+	addr = ":8080"
+)
+
+func main() {
+	mux := http.NewServeMux()
+
+	api := handlers.API{
+		Repo: storage.NewMemStorage(),
+	}
+	mux.Handle(`/update/`, middleware.Conveyor(handlers.MakeHandler(api.UpdateHandler), middleware.Post)) // а как это укоротить????
+
+	log.Println("started serving on", addr)
+	err := http.ListenAndServe(addr, mux)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
