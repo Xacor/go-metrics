@@ -39,18 +39,20 @@ func (api *API) UpdateHandler(w http.ResponseWriter, r *http.Request, mtype, id,
 
 		metric = model.Metric{
 			ID:    id,
-			Type:  model.Counter,
+			Type:  model.Guage,
 			Value: v,
 		}
 	}
 	if _, err := api.Repo.Get(id); err != nil {
 		if _, err = api.Repo.Create(metric); err != nil {
+			log.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 		return
 	}
 
 	if _, err := api.Repo.Update(metric); err != nil {
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
