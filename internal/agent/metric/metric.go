@@ -112,5 +112,4 @@ func (m *Metrics) Update() {
 
 	m.PollCount++
 	m.RandomValue = Gauge(rand.Float64()) //nolint:gosec // its ok to use weak random algorythm here
-	//fmt.Printf("%+v\n", m)
 }
