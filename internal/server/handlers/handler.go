@@ -49,10 +49,10 @@ func (api *API) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	w.Write(resp)
 }
-
 func (api *API) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 	var metricType, metricID, metricValue string
 	if metricType = chi.URLParam(r, "metricType"); metricType == "" {
+		log.Println("empty metric type")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}

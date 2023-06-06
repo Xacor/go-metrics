@@ -25,11 +25,9 @@ func main() {
 
 	r.Get("/", api.MetricsHandler)
 	r.Route("/value", func(r chi.Router) {
-		r.Use()
 		r.Get("/{metricType}/{metricID}", api.MetricHandler)
 	})
 	r.Route("/update", func(r chi.Router) {
-		r.Use()
 		r.Post("/{metricType}/{metricID}/{metricValue}", api.UpdateHandler)
 	})
 
