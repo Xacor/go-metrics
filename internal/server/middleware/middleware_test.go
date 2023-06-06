@@ -41,6 +41,7 @@ func TestPost(t *testing.T) {
 			res := w.Result()
 
 			assert.Equal(t, res.StatusCode, test.want.code)
+			res.Body.Close()
 		})
 	}
 
@@ -80,6 +81,7 @@ func TestTextPlain(t *testing.T) {
 			res := w.Result()
 
 			assert.Equal(t, res.StatusCode, test.want.code)
+			res.Body.Close()
 		})
 	}
 }
@@ -122,6 +124,7 @@ func TestValidateParams(t *testing.T) {
 			res := w.Result()
 
 			assert.Equal(t, res.StatusCode, test.want.code)
+			res.Body.Close()
 		})
 	}
 }
