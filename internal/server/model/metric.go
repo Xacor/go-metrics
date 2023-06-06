@@ -8,7 +8,7 @@ type MetricType int
 
 const (
 	Counter MetricType = iota
-	Guage
+	Gauge
 )
 
 type Metric struct {

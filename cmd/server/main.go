@@ -19,7 +19,7 @@ func main() {
 	api := handlers.API{
 		Repo: storage.NewMemStorage(),
 	}
-	mux.Handle(`/update/`, middleware.Conveyor(handlers.MakeHandler(api.UpdateHandler), middleware.Post)) // а как это укоротить????
+	mux.Handle(`/update/`, middleware.Conveyor(http.HandlerFunc(api.UpdateHandler), middleware.ValidateParams, middleware.Post)) // а как это укоротить????
 
 	log.Println("started serving on", addr)
 	err := http.ListenAndServe(addr, mux)

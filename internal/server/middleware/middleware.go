@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"net/http"
+
+	"github.com/Xacor/go-metrics/internal/server/global"
 )
 
 type Middleware func(http.Handler) http.Handler
@@ -29,6 +31,32 @@ func TextPlain(next http.Handler) http.Handler {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func ValidateParams(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mtype := global.ValidType.FindStringSubmatch(r.URL.Path)
+		if mtype == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		mid := global.ValidID.FindStringSubmatch(r.URL.Path)
+		if mid == nil {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		mvalue := global.ValidValue.FindStringSubmatch(r.URL.Path)
+		if mvalue == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		// по хорошему писать извлеченные параметры в контекст, чтоб второй раз не делать тоже самое
+
 		next.ServeHTTP(w, r)
 	})
 }

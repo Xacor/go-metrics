@@ -67,7 +67,7 @@ func (mem *MemStorage) Update(metric model.Metric) (model.Metric, error) {
 	case model.Counter:
 		err = obj.Add(metric.Value)
 
-	case model.Guage:
+	case model.Gauge:
 		err = obj.Set(metric.Value)
 	}
 
