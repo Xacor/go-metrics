@@ -50,6 +50,7 @@ func TestAPI_UpdateHandler(t *testing.T) {
 
 			result := w.Result()
 			assert.Equal(t, tt.want.statusCode, result.StatusCode)
+			result.Body.Close()
 		})
 	}
 }
