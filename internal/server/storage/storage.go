@@ -9,6 +9,7 @@ import (
 )
 
 type MetricRepo interface {
+	All() ([]model.Metric, error)
 	Get(id string) (model.Metric, error)
 	Create(model.Metric) (model.Metric, error)
 	Update(model.Metric) (model.Metric, error)
@@ -23,6 +24,18 @@ func NewMemStorage() *MemStorage {
 	return &MemStorage{
 		data: make(map[string]model.Metric),
 	}
+}
+
+func (mem *MemStorage) All() ([]model.Metric, error) {
+	mem.mu.Lock()
+	defer mem.mu.Unlock()
+
+	result := make([]model.Metric, 0, len(mem.data))
+	for _, v := range mem.data {
+		result = append(result, v)
+	}
+
+	return result, nil
 }
 
 func (mem *MemStorage) Get(id string) (model.Metric, error) {

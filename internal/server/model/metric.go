@@ -12,9 +12,9 @@ const (
 )
 
 type Metric struct {
-	ID    string
-	Type  MetricType
-	Value interface{}
+	ID    string      `json:"id,omitempty"`
+	Value interface{} `json:"value,omitempty"`
+	Type  MetricType  `json:"-"`
 }
 
 func (m *Metric) Set(value interface{}) error {
