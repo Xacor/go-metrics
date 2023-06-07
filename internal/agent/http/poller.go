@@ -12,14 +12,14 @@ import (
 )
 
 type Poller struct {
-	pollInterval   uint
-	reportInterval uint
+	pollInterval   int
+	reportInterval int
 	address        string
 	metrics        *metric.Metrics
 	client         *http.Client
 }
 
-func NewPoller(pollInterval, reportInterval uint, address string) *Poller {
+func NewPoller(pollInterval, reportInterval int, address string) *Poller {
 
 	return &Poller{
 		pollInterval:   pollInterval,
@@ -32,7 +32,7 @@ func NewPoller(pollInterval, reportInterval uint, address string) *Poller {
 
 func (p *Poller) Run() {
 	log.Println("poller started")
-	for i := uint(0); ; i++ {
+	for i := 0; ; i++ {
 		log.Println("poller tick:", i)
 		time.Sleep(time.Second * 1)
 		if i%p.pollInterval == 0 {

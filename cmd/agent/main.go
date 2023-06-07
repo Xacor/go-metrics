@@ -2,20 +2,31 @@ package main
 
 import (
 	"flag"
+	"log"
 
 	"github.com/Xacor/go-metrics/internal/agent/http"
+	"github.com/caarlos0/env/v6"
 )
 
-var (
-	addr           = flag.String("a", "localhost:8080", "endpoint server")
-	reportInterval = flag.Uint("r", 10, "report interval")
-	pollInterval   = flag.Uint("p", 2, "poll interval")
-)
+type Config struct {
+	Address        string `env:"ADDRESS"`
+	ReportInterval int    `env:"REPORT_INTERVAL"`
+	PollInterval   int    `env:"POLL_INTERVAL"`
+}
 
 func main() {
+	var cfg Config
+	flag.StringVar(&cfg.Address, "a", "localhost:8080", "server address")
+	flag.IntVar(&cfg.ReportInterval, "r", 10, "report interval")
+	flag.IntVar(&cfg.PollInterval, "p", 2, "poll interval")
 	flag.Parse()
 
-	poller := http.NewPoller(*pollInterval, *reportInterval, *addr)
+	err := env.Parse(&cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	poller := http.NewPoller(cfg.PollInterval, cfg.ReportInterval, cfg.Address)
 	poller.Run()
 
 }
