@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 
@@ -10,11 +11,12 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-const (
-	addr = ":8080"
+var (
+	addr = flag.String("a", "localhost:8080", "endpoint server")
 )
 
 func main() {
+	flag.Parse()
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -31,8 +33,8 @@ func main() {
 		r.Post("/{metricType}/{metricID}/{metricValue}", api.UpdateHandler)
 	})
 
-	log.Println("started serving on", addr)
-	err := http.ListenAndServe(addr, r)
+	log.Println("started serving on", *addr)
+	err := http.ListenAndServe(*addr, r)
 	if err != nil {
 		log.Fatal(err)
 	}

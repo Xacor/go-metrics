@@ -20,11 +20,12 @@ type Poller struct {
 }
 
 func NewPoller(pollInterval, reportInterval uint, address string) *Poller {
+
 	return &Poller{
 		pollInterval:   pollInterval,
 		reportInterval: reportInterval,
 		metrics:        metric.NewMetrics(),
-		address:        address,
+		address:        "http://" + address,
 		client:         &http.Client{},
 	}
 }
