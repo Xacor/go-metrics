@@ -28,5 +28,4 @@ func main() {
 
 	poller := http.NewPoller(cfg.PollInterval, cfg.ReportInterval, cfg.Address)
 	poller.Run()
-
 }

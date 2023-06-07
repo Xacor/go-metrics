@@ -20,7 +20,6 @@ type Poller struct {
 }
 
 func NewPoller(pollInterval, reportInterval int, address string) *Poller {
-
 	return &Poller{
 		pollInterval:   pollInterval,
 		reportInterval: reportInterval,
@@ -39,7 +38,10 @@ func (p *Poller) Run() {
 			p.metrics.Update()
 		}
 		if i%p.reportInterval == 0 {
-			p.SendRequests()
+			err := p.SendRequests()
+			if err != nil {
+				log.Println(err)
+			}
 		}
 	}
 }
