@@ -10,9 +10,8 @@ type API struct {
 }
 
 func NewAPI(repo storage.MetricRepo) *API {
-	api := API{repo: repo}
 
-	return &api
+	return &API{repo: repo}
 }
 
 func (api *API) RegisterRoutes(router *chi.Mux) {

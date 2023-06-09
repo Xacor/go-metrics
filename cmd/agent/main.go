@@ -17,8 +17,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	poller := poller.Poller{}
-	poller.Configure(
+	poller := poller.NewPoller(
 		cfg.GetPollInterval(),
 		cfg.GetReportInterval(),
 		cfg.GetURL(),

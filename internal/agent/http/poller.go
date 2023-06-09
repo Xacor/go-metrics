@@ -19,12 +19,14 @@ type Poller struct {
 	client         *http.Client
 }
 
-func (p *Poller) Configure(pollInterval, reportInterval int, address string, metrics *metric.Metrics, client *http.Client) {
-	p.pollInterval = pollInterval
-	p.reportInterval = reportInterval
-	p.address = address
-	p.metrics = metrics
-	p.client = client
+func NewPoller(pollInterval, reportInterval int, address string, metrics *metric.Metrics, client *http.Client) *Poller {
+	return &Poller{
+		pollInterval:   pollInterval,
+		reportInterval: reportInterval,
+		address:        address,
+		metrics:        metrics,
+		client:         client,
+	}
 }
 
 func (p *Poller) Run() {
