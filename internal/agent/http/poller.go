@@ -19,34 +19,28 @@ type Poller struct {
 	client         *http.Client
 }
 
-func NewPoller(pollInterval, reportInterval int, address string) *Poller {
-	return &Poller{
-		pollInterval:   pollInterval,
-		reportInterval: reportInterval,
-		metrics:        metric.NewMetrics(),
-		address:        "http://" + address,
-		client:         &http.Client{},
-	}
+func (p *Poller) Configure(pollInterval, reportInterval int, address string, metrics *metric.Metrics, client *http.Client) {
+	p.pollInterval = pollInterval
+	p.reportInterval = reportInterval
+	p.address = address
+	p.metrics = metrics
+	p.client = client
 }
 
 func (p *Poller) Run() {
 	log.Println("poller started")
 	for i := 0; ; i++ {
-		log.Println("poller tick:", i)
 		time.Sleep(time.Second * 1)
 		if i%p.pollInterval == 0 {
 			p.metrics.Update()
 		}
 		if i%p.reportInterval == 0 {
-			err := p.SendRequests()
-			if err != nil {
+			if err := p.SendRequests(); err != nil {
 				log.Println(err)
 			}
 		}
 	}
 }
-
-// http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>
 
 func (p *Poller) SendRequests() error {
 	values := reflect.ValueOf(p.metrics).Elem()
@@ -72,8 +66,8 @@ func (p *Poller) SendRequests() error {
 		default:
 			log.Println("unexpected kind:", value.Kind(), value)
 		}
+
 		url, err := url.JoinPath(p.address, "update", strType, field.Name, strVal)
-		log.Println(url)
 		if err != nil {
 			return err
 		}
@@ -82,7 +76,8 @@ func (p *Poller) SendRequests() error {
 		if err != nil {
 			log.Println(err)
 		}
-		log.Println(resp.StatusCode)
+
+		log.Println(url, resp.StatusCode)
 		resp.Body.Close()
 	}
 	return nil

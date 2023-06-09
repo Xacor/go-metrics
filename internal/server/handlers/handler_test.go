@@ -28,9 +28,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method,
 }
 
 func TestAPI_UpdateRouter(t *testing.T) {
-	api := &API{
-		Repo: storage.NewMemStorage(),
-	}
+	api := NewAPI(storage.NewMemStorage())
 
 	r := chi.NewRouter()
 	r.Post("/update/{metricType}/{metricID}/{metricValue}", api.UpdateHandler)

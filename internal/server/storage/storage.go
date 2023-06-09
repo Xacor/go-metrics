@@ -78,10 +78,10 @@ func (mem *MemStorage) Update(metric model.Metric) (model.Metric, error) {
 	var err error
 	switch obj.Type {
 	case model.Counter:
-		err = obj.Add(metric.Value)
+		err = addValue(metric.Value, &obj)
 
 	case model.Gauge:
-		err = obj.Set(metric.Value)
+		err = setValue(metric.Value, &obj)
 	}
 
 	if err != nil {
@@ -92,4 +92,24 @@ func (mem *MemStorage) Update(metric model.Metric) (model.Metric, error) {
 	mem.data[metric.ID] = obj
 
 	return mem.data[metric.ID], nil
+}
+
+func setValue(value interface{}, dst *model.Metric) error {
+	v, ok := value.(float64)
+	if !ok {
+		return errors.New("unexpected type")
+	}
+	dst.Value = v
+
+	return nil
+}
+
+func addValue(value interface{}, dst *model.Metric) error {
+	v, ok := value.(int64)
+	if !ok {
+		return errors.New("unexpected type")
+	}
+	dst.Value = dst.Value.(int64) + v
+
+	return nil
 }
