@@ -1,0 +1,115 @@
+package storage
+
+import (
+	"errors"
+	"log"
+	"sync"
+
+	"github.com/Xacor/go-metrics/internal/server/model"
+)
+
+type MetricRepo interface {
+	All() ([]model.Metric, error)
+	Get(id string) (model.Metric, error)
+	Create(model.Metric) (model.Metric, error)
+	Update(model.Metric) (model.Metric, error)
+}
+
+type MemStorage struct {
+	data map[string]model.Metric
+	mu   sync.RWMutex
+}
+
+func NewMemStorage() *MemStorage {
+	return &MemStorage{
+		data: make(map[string]model.Metric),
+	}
+}
+
+func (mem *MemStorage) All() ([]model.Metric, error) {
+	mem.mu.Lock()
+	defer mem.mu.Unlock()
+
+	result := make([]model.Metric, 0, len(mem.data))
+	for _, v := range mem.data {
+		result = append(result, v)
+	}
+
+	return result, nil
+}
+
+func (mem *MemStorage) Get(id string) (model.Metric, error) {
+	mem.mu.Lock()
+	defer mem.mu.Unlock()
+
+	val, ok := mem.data[id]
+	if !ok {
+		return model.Metric{}, errors.New("metric with this id not found")
+	}
+	return val, nil
+}
+
+func (mem *MemStorage) Create(metric model.Metric) (model.Metric, error) {
+	mem.mu.Lock()
+	defer mem.mu.Unlock()
+
+	log.Println("create")
+	_, exist := mem.data[metric.ID]
+	if exist {
+		return model.Metric{}, errors.New("metric with this id already exists")
+	}
+
+	mem.data[metric.ID] = metric
+	return mem.data[metric.ID], nil
+}
+
+func (mem *MemStorage) Update(metric model.Metric) (model.Metric, error) {
+	mem.mu.Lock()
+	defer mem.mu.Unlock()
+
+	// получение существующего экземпляра
+	obj, exist := mem.data[metric.ID]
+	if !exist {
+		return model.Metric{}, errors.New("metric doesnt exist")
+	}
+	log.Println(obj)
+
+	// изменение в зависимости от типа
+	var err error
+	switch obj.Type {
+	case model.Counter:
+		err = addValue(metric.Value, &obj)
+
+	case model.Gauge:
+		err = setValue(metric.Value, &obj)
+	}
+
+	if err != nil {
+		return model.Metric{}, err
+	}
+
+	// запись в мапу
+	mem.data[metric.ID] = obj
+
+	return mem.data[metric.ID], nil
+}
+
+func setValue(value interface{}, dst *model.Metric) error {
+	v, ok := value.(float64)
+	if !ok {
+		return errors.New("unexpected type")
+	}
+	dst.Value = v
+
+	return nil
+}
+
+func addValue(value interface{}, dst *model.Metric) error {
+	v, ok := value.(int64)
+	if !ok {
+		return errors.New("unexpected type")
+	}
+	dst.Value = dst.Value.(int64) + v
+
+	return nil
+}
