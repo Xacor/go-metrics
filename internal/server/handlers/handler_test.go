@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Xacor/go-metrics/internal/server/logger"
 	"github.com/Xacor/go-metrics/internal/server/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
@@ -28,7 +29,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method,
 }
 
 func TestAPI_UpdateRouter(t *testing.T) {
-	api := NewAPI(storage.NewMemStorage())
+	api := NewAPI(storage.NewMemStorage(), logger.Log)
 
 	r := chi.NewRouter()
 	r.Post("/update/{metricType}/{metricID}/{metricValue}", api.UpdateHandler)

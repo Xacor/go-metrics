@@ -8,6 +8,7 @@ import (
 
 func (c *Config) ParseFlags() {
 	flag.StringVar(&c.Address, "a", "localhost:8080", "server address")
+	flag.StringVar(&c.LogLevel, "l", "info", "log level")
 	flag.Parse()
 }
 

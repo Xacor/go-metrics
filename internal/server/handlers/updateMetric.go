@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"log"
 	"net/http"
 	"strconv"
 
@@ -12,17 +11,19 @@ import (
 func (api *API) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 	var metricType, metricID, metricValue string
 	if metricType = chi.URLParam(r, "metricType"); metricType == "" {
-		log.Println("empty metric type")
+		api.logger.Error("empty metric type")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	if metricID = chi.URLParam(r, "metricID"); metricID == "" {
+		api.logger.Error("empty metric id")
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
 	if metricValue = chi.URLParam(r, "metricValue"); metricValue == "" {
+		api.logger.Error("empty metric value")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -31,7 +32,6 @@ func (api *API) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 
 	switch metricType {
 	case "counter":
-		log.Println("type counter")
 		v, err := strconv.ParseInt(metricValue, 10, 64)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -65,14 +65,14 @@ func (api *API) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 	// create if doesnt exist
 	if _, err := api.repo.Get(metricID); err != nil {
 		if _, err = api.repo.Create(metric); err != nil {
-			log.Println(err)
+			api.logger.Error(err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 		return
 	}
 
 	if _, err := api.repo.Update(metric); err != nil {
-		log.Println(err)
+		api.logger.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

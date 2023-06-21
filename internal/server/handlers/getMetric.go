@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -35,14 +34,14 @@ func (api *API) MetricHandler(w http.ResponseWriter, r *http.Request) {
 func (api *API) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	data, err := api.repo.All()
 	if err != nil {
-		log.Println(err)
+		api.logger.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	resp, err := json.Marshal(data)
 	if err != nil {
-		log.Println(err)
+		api.logger.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

@@ -3,15 +3,17 @@ package handlers
 import (
 	"github.com/Xacor/go-metrics/internal/server/storage"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
 type API struct {
-	repo storage.MetricRepo
+	repo   storage.MetricRepo
+	logger *zap.Logger
 }
 
-func NewAPI(repo storage.MetricRepo) *API {
+func NewAPI(repo storage.MetricRepo, logger *zap.Logger) *API {
 
-	return &API{repo: repo}
+	return &API{repo: repo, logger: logger}
 }
 
 func (api *API) RegisterRoutes(router *chi.Mux) {
