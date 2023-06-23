@@ -29,7 +29,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method,
 }
 
 func TestAPI_UpdateRouter(t *testing.T) {
-	api := NewAPI(storage.NewMemStorage(), logger.Log)
+	api := NewAPI(storage.NewMemStorage(logger.Log), logger.Log)
 
 	r := chi.NewRouter()
 	r.Post("/update/{metricType}/{metricID}/{metricValue}", api.UpdateHandler)
