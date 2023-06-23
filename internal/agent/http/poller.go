@@ -1,11 +1,11 @@
 package http
 
 import (
+	"bytes"
+	"encoding/json"
 	"log"
 	"net/http"
-	"net/url"
 	"reflect"
-	"strconv"
 	"time"
 
 	"github.com/Xacor/go-metrics/internal/agent/metric"
@@ -47,39 +47,48 @@ func (p *Poller) Run() {
 func (p *Poller) SendRequests() error {
 	values := reflect.ValueOf(p.metrics).Elem()
 	types := values.Type()
+	var metric Metrics
+
 	for i := 0; i < values.NumField(); i++ {
 		field := types.Field(i)
 		value := values.Field(i)
-		var strVal, strType string
 
 		switch value.Kind() {
 		case reflect.Uint64:
-			strVal = strconv.FormatUint(value.Uint(), 10)
-			strType = "counter"
+			v := int64(value.Uint())
+			metric = Metrics{
+				ID:    field.Name,
+				MType: TypeCounter,
+				Delta: &v,
+			}
 
 		case reflect.Int64:
-			strVal = strconv.FormatInt(value.Int(), 10)
-			strType = "counter"
+			v := value.Int()
+			metric = Metrics{
+				ID:    field.Name,
+				MType: TypeCounter,
+				Delta: &v,
+			}
 
 		case reflect.Float64:
-			strVal = strconv.FormatFloat(value.Float(), 'f', -1, 64)
-			strType = "gauge"
+			v := value.Float()
+			metric = Metrics{
+				ID:    field.Name,
+				MType: TypeGauge,
+				Value: &v,
+			}
 
 		default:
 			log.Println("unexpected kind:", value.Kind(), value)
 		}
 
-		url, err := url.JoinPath(p.address, "update", strType, field.Name, strVal)
-		if err != nil {
-			return err
-		}
-
-		resp, err := http.Post(url, "text/plain", nil)
+		json, err := json.Marshal(metric)
 		if err != nil {
 			log.Println(err)
+			continue
 		}
+		resp, err := http.Post(p.address+"/update/", "application/json", bytes.NewReader(json))
 
-		log.Println(url, resp.StatusCode)
 		resp.Body.Close()
 	}
 	return nil

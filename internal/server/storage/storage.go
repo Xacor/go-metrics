@@ -2,35 +2,37 @@ package storage
 
 import (
 	"errors"
-	"log"
 	"sync"
 
 	"github.com/Xacor/go-metrics/internal/server/model"
+	"go.uber.org/zap"
 )
 
 type MetricRepo interface {
-	All() ([]model.Metric, error)
-	Get(id string) (model.Metric, error)
-	Create(model.Metric) (model.Metric, error)
-	Update(model.Metric) (model.Metric, error)
+	All() ([]model.Metrics, error)
+	Get(id string) (model.Metrics, error)
+	Create(model.Metrics) (model.Metrics, error)
+	Update(model.Metrics) (model.Metrics, error)
 }
 
 type MemStorage struct {
-	data map[string]model.Metric
-	mu   sync.RWMutex
+	data   map[string]model.Metrics
+	mu     sync.RWMutex
+	logger *zap.Logger
 }
 
-func NewMemStorage() *MemStorage {
+func NewMemStorage(logger *zap.Logger) *MemStorage {
 	return &MemStorage{
-		data: make(map[string]model.Metric),
+		data:   make(map[string]model.Metrics),
+		logger: logger,
 	}
 }
 
-func (mem *MemStorage) All() ([]model.Metric, error) {
+func (mem *MemStorage) All() ([]model.Metrics, error) {
 	mem.mu.Lock()
 	defer mem.mu.Unlock()
 
-	result := make([]model.Metric, 0, len(mem.data))
+	result := make([]model.Metrics, 0, len(mem.data))
 	for _, v := range mem.data {
 		result = append(result, v)
 	}
@@ -38,78 +40,54 @@ func (mem *MemStorage) All() ([]model.Metric, error) {
 	return result, nil
 }
 
-func (mem *MemStorage) Get(id string) (model.Metric, error) {
+func (mem *MemStorage) Get(id string) (model.Metrics, error) {
 	mem.mu.Lock()
 	defer mem.mu.Unlock()
 
 	val, ok := mem.data[id]
 	if !ok {
-		return model.Metric{}, errors.New("metric with this id not found")
+		return model.Metrics{}, errors.New("metric with this id not found")
 	}
 	return val, nil
 }
 
-func (mem *MemStorage) Create(metric model.Metric) (model.Metric, error) {
+func (mem *MemStorage) Create(metric model.Metrics) (model.Metrics, error) {
 	mem.mu.Lock()
 	defer mem.mu.Unlock()
 
-	log.Println("create")
 	_, exist := mem.data[metric.ID]
 	if exist {
-		return model.Metric{}, errors.New("metric with this id already exists")
+		return model.Metrics{}, errors.New("metric with this id already exists")
 	}
 
 	mem.data[metric.ID] = metric
 	return mem.data[metric.ID], nil
 }
 
-func (mem *MemStorage) Update(metric model.Metric) (model.Metric, error) {
+func (mem *MemStorage) Update(metric model.Metrics) (model.Metrics, error) {
 	mem.mu.Lock()
 	defer mem.mu.Unlock()
 
 	// получение существующего экземпляра
-	obj, exist := mem.data[metric.ID]
+	old, exist := mem.data[metric.ID]
 	if !exist {
-		return model.Metric{}, errors.New("metric doesnt exist")
+		return model.Metrics{}, errors.New("metric doesnt exist")
 	}
-	log.Println(obj)
 
 	// изменение в зависимости от типа
-	var err error
-	switch obj.Type {
-	case model.Counter:
-		err = addValue(metric.Value, &obj)
+	switch old.MType {
+	case model.TypeCounter:
+		// защита от уменьшения значения для counter
+		if *metric.Delta >= *old.Delta {
+			old.Delta = metric.Delta
+		}
 
-	case model.Gauge:
-		err = setValue(metric.Value, &obj)
-	}
-
-	if err != nil {
-		return model.Metric{}, err
+	case model.TypeGauge:
+		old.Value = metric.Value
 	}
 
 	// запись в мапу
-	mem.data[metric.ID] = obj
+	mem.data[metric.ID] = old
 
 	return mem.data[metric.ID], nil
-}
-
-func setValue(value interface{}, dst *model.Metric) error {
-	v, ok := value.(float64)
-	if !ok {
-		return errors.New("unexpected type")
-	}
-	dst.Value = v
-
-	return nil
-}
-
-func addValue(value interface{}, dst *model.Metric) error {
-	v, ok := value.(int64)
-	if !ok {
-		return errors.New("unexpected type")
-	}
-	dst.Value = dst.Value.(int64) + v
-
-	return nil
 }

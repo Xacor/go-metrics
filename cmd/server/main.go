@@ -30,7 +30,7 @@ func main() {
 	r.Use(middleware.NewLogger(logger.Log))
 	r.Use(chimiddleware.Recoverer)
 
-	api := handlers.NewAPI(storage.NewMemStorage(), logger.Log)
+	api := handlers.NewAPI(storage.NewMemStorage(logger.Log), logger.Log)
 	api.RegisterRoutes(r)
 
 	logger.Log.Info(fmt.Sprintf("starting serving on %s", cfg.Address))
