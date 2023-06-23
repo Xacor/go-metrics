@@ -79,7 +79,7 @@ func (mem *MemStorage) Update(metric model.Metrics) (model.Metrics, error) {
 	case model.TypeCounter:
 		// защита от уменьшения значения для counter
 		if *metric.Delta >= *old.Delta {
-			old.Delta = metric.Delta
+			*old.Delta += *metric.Delta
 		}
 
 	case model.TypeGauge:
