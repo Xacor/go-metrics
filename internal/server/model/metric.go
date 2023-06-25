@@ -1,14 +1,13 @@
 package model
 
-type MetricType int
-
 const (
-	Counter MetricType = iota
-	Gauge
+	TypeCounter = "counter"
+	TypeGauge   = "gauge"
 )
 
-type Metric struct {
-	ID    string      `json:"id,omitempty"`
-	Value interface{} `json:"value,omitempty"`
-	Type  MetricType  `json:"-"`
+type Metrics struct {
+	ID    string   `json:"id"`              // имя метрики
+	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
+	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
+	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 }

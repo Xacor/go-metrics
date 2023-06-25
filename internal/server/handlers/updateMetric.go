@@ -28,33 +28,34 @@ func (api *API) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var metric model.Metric
+	var metric model.Metrics
 
 	switch metricType {
-	case "counter":
+	case model.TypeCounter:
 		v, err := strconv.ParseInt(metricValue, 10, 64)
 		if err != nil {
+			api.logger.Error("can't parse int value")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
-		metric = model.Metric{
+		metric = model.Metrics{
 			ID:    metricID,
-			Type:  model.Counter,
-			Value: v,
+			MType: model.TypeCounter,
+			Delta: &v,
 		}
 
-	case "gauge":
+	case model.TypeGauge:
 		v, err := strconv.ParseFloat(metricValue, 64)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
-		metric = model.Metric{
+		metric = model.Metrics{
 			ID:    metricID,
-			Type:  model.Gauge,
-			Value: v,
+			MType: model.TypeGauge,
+			Value: &v,
 		}
 
 	default:

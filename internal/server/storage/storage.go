@@ -9,28 +9,28 @@ import (
 )
 
 type MetricRepo interface {
-	All() ([]model.Metric, error)
-	Get(id string) (model.Metric, error)
-	Create(model.Metric) (model.Metric, error)
-	Update(model.Metric) (model.Metric, error)
+	All() ([]model.Metrics, error)
+	Get(id string) (model.Metrics, error)
+	Create(model.Metrics) (model.Metrics, error)
+	Update(model.Metrics) (model.Metrics, error)
 }
 
 type MemStorage struct {
-	data map[string]model.Metric
+	data map[string]model.Metrics
 	mu   sync.RWMutex
 }
 
 func NewMemStorage() *MemStorage {
 	return &MemStorage{
-		data: make(map[string]model.Metric),
+		data: make(map[string]model.Metrics),
 	}
 }
 
-func (mem *MemStorage) All() ([]model.Metric, error) {
+func (mem *MemStorage) All() ([]model.Metrics, error) {
 	mem.mu.Lock()
 	defer mem.mu.Unlock()
 
-	result := make([]model.Metric, 0, len(mem.data))
+	result := make([]model.Metrics, 0, len(mem.data))
 	for _, v := range mem.data {
 		result = append(result, v)
 	}
@@ -38,54 +38,53 @@ func (mem *MemStorage) All() ([]model.Metric, error) {
 	return result, nil
 }
 
-func (mem *MemStorage) Get(id string) (model.Metric, error) {
+func (mem *MemStorage) Get(id string) (model.Metrics, error) {
 	mem.mu.Lock()
 	defer mem.mu.Unlock()
 
 	val, ok := mem.data[id]
 	if !ok {
-		return model.Metric{}, errors.New("metric with this id not found")
+		return model.Metrics{}, errors.New("metric with this id not found")
 	}
 	return val, nil
 }
 
-func (mem *MemStorage) Create(metric model.Metric) (model.Metric, error) {
+func (mem *MemStorage) Create(metric model.Metrics) (model.Metrics, error) {
 	mem.mu.Lock()
 	defer mem.mu.Unlock()
 
-	log.Println("create")
 	_, exist := mem.data[metric.ID]
 	if exist {
-		return model.Metric{}, errors.New("metric with this id already exists")
+		return model.Metrics{}, errors.New("metric with this id already exists")
 	}
 
 	mem.data[metric.ID] = metric
 	return mem.data[metric.ID], nil
 }
 
-func (mem *MemStorage) Update(metric model.Metric) (model.Metric, error) {
+func (mem *MemStorage) Update(metric model.Metrics) (model.Metrics, error) {
 	mem.mu.Lock()
 	defer mem.mu.Unlock()
 
 	// получение существующего экземпляра
 	obj, exist := mem.data[metric.ID]
 	if !exist {
-		return model.Metric{}, errors.New("metric doesnt exist")
+		return model.Metrics{}, errors.New("metric doesnt exist")
 	}
 	log.Println(obj)
 
 	// изменение в зависимости от типа
 	var err error
-	switch obj.Type {
-	case model.Counter:
-		err = addValue(metric.Value, &obj)
+	switch obj.MType {
+	case model.TypeCounter:
+		addDelta(metric.Delta, &obj)
 
-	case model.Gauge:
-		err = setValue(metric.Value, &obj)
+	case model.TypeGauge:
+		setValue(metric.Value, &obj)
 	}
 
 	if err != nil {
-		return model.Metric{}, err
+		return model.Metrics{}, err
 	}
 
 	// запись в мапу
@@ -94,22 +93,10 @@ func (mem *MemStorage) Update(metric model.Metric) (model.Metric, error) {
 	return mem.data[metric.ID], nil
 }
 
-func setValue(value interface{}, dst *model.Metric) error {
-	v, ok := value.(float64)
-	if !ok {
-		return errors.New("unexpected type")
-	}
-	dst.Value = v
-
-	return nil
+func addDelta(delta *int64, dst *model.Metrics) {
+	*dst.Delta = *dst.Delta + *delta
 }
 
-func addValue(value interface{}, dst *model.Metric) error {
-	v, ok := value.(int64)
-	if !ok {
-		return errors.New("unexpected type")
-	}
-	dst.Value = dst.Value.(int64) + v
-
-	return nil
+func setValue(value *float64, dst *model.Metrics) {
+	*dst.Value = *value
 }
