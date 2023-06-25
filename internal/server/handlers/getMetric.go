@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/Xacor/go-metrics/internal/server/model"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -25,7 +26,13 @@ func (api *API) MetricHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	valStr := fmt.Sprintf("%v", data.Value)
+	var valStr string
+	switch data.MType {
+	case model.TypeCounter:
+		valStr = fmt.Sprintf("%v", *data.Delta)
+	case model.TypeGauge:
+		valStr = fmt.Sprintf("%v", *data.Value)
+	}
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.Write([]byte(valStr))

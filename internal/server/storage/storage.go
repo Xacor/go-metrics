@@ -74,17 +74,12 @@ func (mem *MemStorage) Update(metric model.Metrics) (model.Metrics, error) {
 	log.Println(obj)
 
 	// изменение в зависимости от типа
-	var err error
 	switch obj.MType {
 	case model.TypeCounter:
 		addDelta(metric.Delta, &obj)
 
 	case model.TypeGauge:
 		setValue(metric.Value, &obj)
-	}
-
-	if err != nil {
-		return model.Metrics{}, err
 	}
 
 	// запись в мапу
