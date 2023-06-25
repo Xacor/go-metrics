@@ -20,10 +20,12 @@ func (api *API) RegisterRoutes(router *chi.Mux) {
 	router.Get("/", api.MetricsHandler)
 
 	router.Route("/value", func(r chi.Router) {
+		r.Post("/", api.MetricJson)
 		r.Get("/{metricType}/{metricID}", api.MetricHandler)
 	})
 
 	router.Route("/update", func(r chi.Router) {
+		r.Post("/", api.UpdateJSON)
 		r.Post("/{metricType}/{metricID}/{metricValue}", api.UpdateHandler)
 	})
 }

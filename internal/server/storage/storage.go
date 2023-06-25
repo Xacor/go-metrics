@@ -2,7 +2,6 @@ package storage
 
 import (
 	"errors"
-	"log"
 	"sync"
 
 	"github.com/Xacor/go-metrics/internal/server/model"
@@ -71,7 +70,6 @@ func (mem *MemStorage) Update(metric model.Metrics) (model.Metrics, error) {
 	if !exist {
 		return model.Metrics{}, errors.New("metric doesnt exist")
 	}
-	log.Println(obj)
 
 	// изменение в зависимости от типа
 	switch obj.MType {

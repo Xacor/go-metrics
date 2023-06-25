@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -54,4 +55,44 @@ func (api *API) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html")
 	w.Write(resp)
+}
+
+func (api *API) MetricJson(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Content-Type") != "application/json" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var metric model.Metrics
+	var buf bytes.Buffer
+
+	if _, err := buf.ReadFrom(r.Body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := json.Unmarshal(buf.Bytes(), &metric); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	api.logger.Info(fmt.Sprintf("requested metric %+v", metric))
+
+	metric, err := api.repo.Get(metric.ID)
+	if err != nil {
+		api.logger.Info("metric not found")
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	api.logger.Info(fmt.Sprintf("found metric %+v", metric))
+
+	json, err := json.Marshal(metric)
+	if err != nil {
+		api.logger.Error(err.Error())
+		w.Write([]byte(err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(json)
 }
