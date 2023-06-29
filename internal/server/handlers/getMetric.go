@@ -57,7 +57,7 @@ func (api *API) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
-func (api *API) MetricJson(w http.ResponseWriter, r *http.Request) {
+func (api *API) MetricJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Content-Type") != "application/json" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -76,16 +76,27 @@ func (api *API) MetricJson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	api.logger.Info(fmt.Sprintf("requested metric %+v", metric))
+	result, err := api.repo.Get(metric.ID)
 
-	metric, err := api.repo.Get(metric.ID)
+	// если на найдена такая метрика, то формируется ответ с нулевым значением
+	// возможно стоит сразу создавать такую метрику в бд
 	if err != nil {
 		api.logger.Info("metric not found")
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	api.logger.Info(fmt.Sprintf("found metric %+v", metric))
+		result.ID = metric.ID
+		result.MType = metric.MType
 
-	json, err := json.Marshal(metric)
+		if result.MType == model.TypeCounter {
+			var delta int64 = 0
+			result.Delta = &delta
+		} else {
+			var value float64 = 0
+			result.Value = &value
+		}
+	}
+
+	api.logger.Info(fmt.Sprintf("responsed metric %+v", result))
+
+	json, err := json.Marshal(result)
 	if err != nil {
 		api.logger.Error(err.Error())
 		w.Write([]byte(err.Error()))
