@@ -3,12 +3,14 @@ package http
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"reflect"
 	"time"
 
 	"github.com/Xacor/go-metrics/internal/agent/metric"
+	"go.uber.org/zap"
 )
 
 type Poller struct {
@@ -17,20 +19,22 @@ type Poller struct {
 	address        string
 	metrics        *metric.Metrics
 	client         *http.Client
+	logger         *zap.Logger
 }
 
-func NewPoller(pollInterval, reportInterval int, address string, metrics *metric.Metrics, client *http.Client) *Poller {
+func NewPoller(pollInterval, reportInterval int, address string, metrics *metric.Metrics, client *http.Client, logger *zap.Logger) *Poller {
 	return &Poller{
 		pollInterval:   pollInterval,
 		reportInterval: reportInterval,
 		address:        address,
 		metrics:        metrics,
 		client:         client,
+		logger:         logger,
 	}
 }
 
 func (p *Poller) Run() {
-	log.Println("poller started")
+	p.logger.Info("poller started")
 	for i := 0; ; i++ {
 		time.Sleep(time.Second * 1)
 		if i%p.pollInterval == 0 {
@@ -82,7 +86,7 @@ func (p *Poller) SendRequests() error {
 			}
 
 		default:
-			log.Println("unexpected kind:", value.Kind(), value)
+			p.logger.Info(fmt.Sprintf("unexpected kind: %v, value: %v", value.Kind(), value))
 		}
 
 		json, err := json.Marshal(metric)
