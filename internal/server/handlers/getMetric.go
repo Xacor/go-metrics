@@ -78,20 +78,10 @@ func (api *API) MetricJSON(w http.ResponseWriter, r *http.Request) {
 	api.logger.Info(fmt.Sprintf("requested metric %+v", metric))
 	result, err := api.repo.Get(metric.ID)
 
-	// если на найдена такая метрика, то формируется ответ с нулевым значением
-	// возможно стоит сразу создавать такую метрику в бд
 	if err != nil {
 		api.logger.Info("metric not found")
-		result.ID = metric.ID
-		result.MType = metric.MType
-
-		if result.MType == model.TypeCounter {
-			var delta int64 = 0
-			result.Delta = &delta
-		} else {
-			var value float64 = 0
-			result.Value = &value
-		}
+		w.WriteHeader(http.StatusNotFound)
+		return
 	}
 
 	api.logger.Info(fmt.Sprintf("responsed metric %+v", result))
