@@ -79,6 +79,8 @@ func (api *API) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (api *API) UpdateJSON(w http.ResponseWriter, r *http.Request) {
@@ -125,5 +127,6 @@ func (api *API) UpdateJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	w.Write(json)
 }

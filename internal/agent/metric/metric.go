@@ -46,7 +46,6 @@ type Metrics struct {
 // Returns up to date Metrics.
 func NewMetrics() *Metrics {
 	m := Metrics{}
-	m.Update()
 
 	return &m
 }

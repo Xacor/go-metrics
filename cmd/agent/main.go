@@ -33,4 +33,6 @@ func main() {
 
 	poller := poller.NewPoller(&pcfg)
 	poller.Run()
+
+	defer logger.Log.Sync()
 }

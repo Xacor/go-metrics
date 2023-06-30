@@ -2,8 +2,10 @@ package http
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"reflect"
 	"time"
@@ -73,7 +75,6 @@ func (p *Poller) SendRequests() error {
 				MType: TypeCounter,
 				Delta: &v,
 			}
-
 		case reflect.Int64:
 			v := value.Int()
 			metric = Metrics{
@@ -81,7 +82,6 @@ func (p *Poller) SendRequests() error {
 				MType: TypeCounter,
 				Delta: &v,
 			}
-
 		case reflect.Float64:
 			v := value.Float()
 			metric = Metrics{
@@ -99,16 +99,51 @@ func (p *Poller) SendRequests() error {
 			p.logger.Error(err.Error())
 			continue
 		}
-		reader := bytes.NewReader(json)
-		resp, err := p.client.Post(p.address+"/update/", "application/json", reader)
+
+		compressed, err := p.Compress(json)
 		if err != nil {
 			p.logger.Error(err.Error())
 			continue
 		}
+
+		reader := bytes.NewReader(compressed)
+
+		request, err := http.NewRequest(http.MethodPost, p.address+"/update/", reader)
+		if err != nil {
+			p.logger.Error(err.Error())
+			continue
+		}
+
+		request.Header.Set("Content-Encoding", "gzip")
+		request.Header.Set("Content-Type", "application/json")
+		resp, err := p.client.Do(request)
+		if err != nil {
+			p.logger.Error(err.Error())
+			continue
+		}
+		log.Println(resp.Header)
+
 		err = resp.Body.Close()
 		if err != nil {
 			p.logger.Error(err.Error())
 		}
 	}
 	return nil
+}
+
+func (p *Poller) Compress(data []byte) ([]byte, error) {
+	var b bytes.Buffer
+
+	w := gzip.NewWriter(&b)
+	_, err := w.Write(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed write data to compress temporary buffer: %v", err)
+	}
+
+	err = w.Close()
+	if err != nil {
+		return nil, fmt.Errorf("failed compress data: %v", err)
+	}
+
+	return b.Bytes(), nil
 }

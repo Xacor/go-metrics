@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Xacor/go-metrics/internal/server/logger"
+
 	"go.uber.org/zap"
 )
 
@@ -33,36 +35,31 @@ func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 }
 
 // NewLogger возвращает новую logger-мидлвару
-func NewLogger(logger *zap.Logger) func(next http.Handler) http.Handler {
-	if logger == nil {
-		return func(next http.Handler) http.Handler { return next }
-	}
+func WithLogging(next http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
 
-	return func(next http.Handler) http.Handler {
-		fn := func(w http.ResponseWriter, r *http.Request) {
-			start := time.Now()
-
-			responseData := &responseData{
-				status: 0,
-				size:   0,
-			}
-			lw := loggingResponseWriter{
-				ResponseWriter: w, // встраиваем оригинальный http.ResponseWriter
-				responseData:   responseData,
-			}
-
-			next.ServeHTTP(&lw, r)
-
-			duration := time.Since(start)
-
-			logger.Info("got incoming HTTP request",
-				zap.String("method", r.Method),
-				zap.String("uri", r.RequestURI),
-				zap.Int("status", responseData.status),
-				zap.Duration("duration", duration),
-				zap.Int("size", responseData.size),
-			)
+		responseData := &responseData{
+			status: http.StatusOK,
+			size:   0,
 		}
-		return http.HandlerFunc(fn)
+		lw := loggingResponseWriter{
+			ResponseWriter: w, // встраиваем оригинальный http.ResponseWriter
+			responseData:   responseData,
+		}
+
+		next.ServeHTTP(&lw, r)
+
+		duration := time.Since(start)
+
+		logger.Log.Info("got incoming HTTP request",
+			zap.String("method", r.Method),
+			zap.String("uri", r.RequestURI),
+			zap.Int("status", responseData.status),
+			zap.Duration("duration", duration),
+			zap.Int("size", responseData.size),
+		)
+
 	}
+	return http.HandlerFunc(fn)
 }

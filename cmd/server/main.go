@@ -27,7 +27,8 @@ func main() {
 	}
 
 	r := chi.NewRouter()
-	r.Use(middleware.NewLogger(logger.Log))
+	r.Use(middleware.WithLogging)
+	r.Use(middleware.WithCompression)
 	r.Use(chimiddleware.Recoverer)
 
 	api := handlers.NewAPI(storage.NewMemStorage(), logger.Log)
@@ -38,4 +39,6 @@ func main() {
 	if err != nil {
 		logger.Log.Fatal(fmt.Sprintf("can't start serving: %v", err))
 	}
+
+	defer logger.Log.Sync()
 }
