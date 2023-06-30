@@ -26,8 +26,15 @@ func (c *compressWriter) Header() http.Header {
 }
 
 func (c *compressWriter) Write(p []byte) (int, error) {
-	c.WriteHeader(http.StatusOK)
-	return c.zw.Write(p)
+	contentType := c.w.Header().Get("Content-Type")
+	if contentType == "" {
+		contentType = http.DetectContentType(p)
+	}
+	if contentType == "application/json" || contentType == "text/html" {
+		c.WriteHeader(http.StatusOK)
+		return c.zw.Write(p)
+	}
+	return c.w.Write(p)
 }
 
 func (c *compressWriter) WriteHeader(statusCode int) {
