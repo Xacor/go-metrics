@@ -63,6 +63,9 @@ func (c compressReader) Read(p []byte) (n int, err error) {
 }
 
 func (c *compressReader) Close() error {
+	if err := c.r.Close(); err != nil {
+		return err
+	}
 	return c.zr.Close()
 }
 
@@ -91,17 +94,18 @@ func WithCompression(next http.Handler) http.Handler {
 		sendsGzip := strings.Contains(contentEncoding, "gzip")
 		if sendsGzip {
 			cr, err := newCompressReader(r.Body)
-			defer cr.Close()
-
 			if err != nil {
 				logger.Log.Error(err.Error())
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
+			defer cr.Close()
+
 			r.Body = cr
 		}
 
 		next.ServeHTTP(ow, r)
+
 	}
 	return http.HandlerFunc(fn)
 }
