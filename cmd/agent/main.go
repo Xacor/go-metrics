@@ -5,31 +5,32 @@ import (
 	"net/http"
 
 	"github.com/Xacor/go-metrics/internal/agent/config"
+	"github.com/Xacor/go-metrics/internal/agent/logger"
 	"github.com/Xacor/go-metrics/internal/agent/metric"
-	"go.uber.org/zap"
 
 	poller "github.com/Xacor/go-metrics/internal/agent/http"
 )
 
 func main() {
-	logger, err := zap.NewProduction()
-	if err != nil {
-		log.Fatalf("failed to init logger")
-	}
-
 	cfg := config.Config{}
-	err = cfg.ParseAll()
+	err := cfg.ParseAll()
 	if err != nil {
-		logger.Fatal(err.Error())
+		log.Fatalf("can't parse configuration: %v", err)
 	}
 
-	poller := poller.NewPoller(
-		cfg.GetPollInterval(),
-		cfg.GetReportInterval(),
-		cfg.GetURL(),
-		metric.NewMetrics(),
-		&http.Client{},
-		logger,
-	)
+	if err := logger.Initialize(cfg.LogLevel); err != nil {
+		log.Fatalf("can't initialize zap logger: %v", err)
+	}
+
+	pcfg := poller.PollerConfig{
+		PollInterval:   cfg.GetPollInterval(),
+		ReportInterval: cfg.GetReportInterval(),
+		Address:        cfg.GetURL(),
+		Metrics:        metric.NewMetrics(),
+		Client:         &http.Client{},
+		Logger:         logger.Log,
+	}
+
+	poller := poller.NewPoller(&pcfg)
 	poller.Run()
 }

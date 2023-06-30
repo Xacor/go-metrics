@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"reflect"
 	"time"
@@ -12,6 +11,15 @@ import (
 	"github.com/Xacor/go-metrics/internal/agent/metric"
 	"go.uber.org/zap"
 )
+
+type PollerConfig struct {
+	PollInterval   int
+	ReportInterval int
+	Address        string
+	Metrics        *metric.Metrics
+	Client         *http.Client
+	Logger         *zap.Logger
+}
 
 type Poller struct {
 	pollInterval   int
@@ -22,14 +30,14 @@ type Poller struct {
 	logger         *zap.Logger
 }
 
-func NewPoller(pollInterval, reportInterval int, address string, metrics *metric.Metrics, client *http.Client, logger *zap.Logger) *Poller {
+func NewPoller(cfg *PollerConfig) *Poller {
 	return &Poller{
-		pollInterval:   pollInterval,
-		reportInterval: reportInterval,
-		address:        address,
-		metrics:        metrics,
-		client:         client,
-		logger:         logger,
+		pollInterval:   cfg.PollInterval,
+		reportInterval: cfg.ReportInterval,
+		address:        cfg.Address,
+		metrics:        cfg.Metrics,
+		client:         cfg.Client,
+		logger:         cfg.Logger,
 	}
 }
 
@@ -42,7 +50,7 @@ func (p *Poller) Run() {
 		}
 		if i%p.reportInterval == 0 {
 			if err := p.SendRequests(); err != nil {
-				log.Println(err)
+				p.logger.Error(err.Error())
 			}
 		}
 	}
@@ -59,7 +67,6 @@ func (p *Poller) SendRequests() error {
 
 		switch value.Kind() {
 		case reflect.Uint64:
-
 			v := int64(value.Uint())
 			metric = Metrics{
 				ID:    field.Name,
@@ -68,7 +75,6 @@ func (p *Poller) SendRequests() error {
 			}
 
 		case reflect.Int64:
-
 			v := value.Int()
 			metric = Metrics{
 				ID:    field.Name,
@@ -77,7 +83,6 @@ func (p *Poller) SendRequests() error {
 			}
 
 		case reflect.Float64:
-
 			v := value.Float()
 			metric = Metrics{
 				ID:    field.Name,
@@ -91,18 +96,18 @@ func (p *Poller) SendRequests() error {
 
 		json, err := json.Marshal(metric)
 		if err != nil {
-			log.Println(err)
+			p.logger.Error(err.Error())
 			continue
 		}
 		reader := bytes.NewReader(json)
 		resp, err := p.client.Post(p.address+"/update/", "application/json", reader)
 		if err != nil {
-			log.Println(err)
+			p.logger.Error(err.Error())
 			continue
 		}
 		err = resp.Body.Close()
 		if err != nil {
-			log.Println(err)
+			p.logger.Error(err.Error())
 		}
 	}
 	return nil
