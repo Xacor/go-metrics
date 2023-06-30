@@ -5,7 +5,6 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"reflect"
 	"time"
@@ -121,7 +120,6 @@ func (p *Poller) SendRequests() error {
 			p.logger.Error(err.Error())
 			continue
 		}
-		log.Println(resp.Header)
 
 		err = resp.Body.Close()
 		if err != nil {

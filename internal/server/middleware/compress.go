@@ -3,11 +3,10 @@ package middleware
 import (
 	"compress/gzip"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 
-	"github.com/Xacor/go-metrics/internal/agent/logger"
+	"github.com/Xacor/go-metrics/internal/server/logger"
 )
 
 type compressWriter struct {
@@ -27,6 +26,7 @@ func (c *compressWriter) Header() http.Header {
 }
 
 func (c *compressWriter) Write(p []byte) (int, error) {
+	c.WriteHeader(http.StatusOK)
 	return c.zw.Write(p)
 }
 
@@ -71,8 +71,23 @@ func (c *compressReader) Close() error {
 
 func WithCompression(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		logger.Log.Info("compression middleware")
 		ow := w
+
+		// проверяем, что клиент поддерживает gzip
+		supportsGzip := false
+		for _, acceptEncoding := range r.Header.Values("Accept-Encoding") {
+			supportsGzip = strings.Contains(acceptEncoding, "gzip")
+			if supportsGzip {
+				break
+			}
+		}
+
+		if supportsGzip {
+			cw := newCompressWriter(w)
+			defer cw.Close()
+
+			ow = cw
+		}
 
 		// проверяем, что клиент отправил gzip
 		contentEncoding := r.Header.Get("Content-Encoding")
@@ -89,27 +104,6 @@ func WithCompression(next http.Handler) http.Handler {
 			r.Body = cr
 		}
 
-		// проверяем, что клиент поддерживает gzip
-		supportsGzip := false
-		for _, acceptEncoding := range r.Header.Values("Accept-Encoding") {
-			supportsGzip = strings.Contains(acceptEncoding, "gzip")
-			if supportsGzip {
-				log.Println("client supports gzip")
-				break
-			}
-		}
-
-		if supportsGzip {
-			log.Println("client supports gzip and valid Content-Type")
-			cw := newCompressWriter(w)
-			defer cw.Close()
-
-			ow = cw
-
-			w.Header().Set("Content-Encoding", "gzip")
-		}
-
-		log.Println("Serving next")
 		next.ServeHTTP(ow, r)
 	}
 	return http.HandlerFunc(fn)
