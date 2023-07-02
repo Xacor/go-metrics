@@ -47,6 +47,7 @@ func (p *Poller) Run() {
 	for i := 0; ; i++ {
 		time.Sleep(time.Second * 1)
 		if i%p.pollInterval == 0 {
+			p.logger.Info("updating metric values")
 			p.metrics.Update()
 		}
 		if i%p.reportInterval == 0 {

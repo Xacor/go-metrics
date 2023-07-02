@@ -58,14 +58,11 @@ func main() {
 
 	go func() {
 		t := time.NewTicker(time.Duration(cfg.StoreInterval) * time.Second)
-		for {
-			select {
-			case <-t.C:
-				logger.Log.Info("saving current state")
-				err = storage.Save(cfg.FileStoragePath, s)
-				if err != nil {
-					logger.Log.Error(err.Error())
-				}
+		for range t.C {
+			logger.Log.Info("saving current state")
+			err = storage.Save(cfg.FileStoragePath, s)
+			if err != nil {
+				logger.Log.Error(err.Error())
 			}
 		}
 	}()
@@ -75,7 +72,7 @@ func main() {
 	stop()
 
 	logger.Log.Info("shutting down")
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
 	err = storage.Save(cfg.FileStoragePath, s)
