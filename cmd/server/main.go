@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"time"
 
 	"github.com/Xacor/go-metrics/internal/server/config"
 	"github.com/Xacor/go-metrics/internal/server/handlers"
@@ -15,6 +19,8 @@ import (
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 
 	cfg := config.Config{}
 	err := cfg.ParseAll()
@@ -31,13 +37,54 @@ func main() {
 	r.Use(middleware.WithCompression)
 	r.Use(chimiddleware.Recoverer)
 
-	api := handlers.NewAPI(storage.NewMemStorage(), logger.Log)
+	s := storage.NewMemStorage()
+
+	if cfg.Restore {
+		if err := storage.Load(cfg.FileStoragePath, s); err != nil {
+			logger.Log.Error(err.Error())
+		}
+	}
+
+	api := handlers.NewAPI(s, logger.Log)
 	api.RegisterRoutes(r)
 
+	srv := http.Server{
+		Addr:    cfg.Address,
+		Handler: r,
+	}
+
 	logger.Log.Info(fmt.Sprintf("starting serving on %s", cfg.Address))
-	err = http.ListenAndServe(cfg.Address, r)
+	go srv.ListenAndServe()
+
+	go func() {
+		t := time.NewTicker(time.Duration(cfg.StoreInterval) * time.Second)
+		for {
+			select {
+			case <-t.C:
+				logger.Log.Info("saving current state")
+				err = storage.Save(cfg.FileStoragePath, s)
+				if err != nil {
+					logger.Log.Error(err.Error())
+				}
+			}
+		}
+	}()
+
+	<-ctx.Done()
+
+	stop()
+
+	logger.Log.Info("shutting down")
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err = storage.Save(cfg.FileStoragePath, s)
 	if err != nil {
-		logger.Log.Fatal(fmt.Sprintf("can't start serving: %v", err))
+		logger.Log.Error(err.Error())
+	}
+
+	if err := srv.Shutdown(timeoutCtx); err != nil {
+		logger.Log.Error(err.Error())
 	}
 
 	defer logger.Log.Sync()

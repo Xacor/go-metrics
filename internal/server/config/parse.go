@@ -9,6 +9,9 @@ import (
 func (c *Config) ParseFlags() {
 	flag.StringVar(&c.Address, "a", "localhost:8080", "server address")
 	flag.StringVar(&c.LogLevel, "l", "info", "log level")
+	flag.StringVar(&c.FileStoragePath, "f", "/tmp/metrics-db.json", "file storage path")
+	flag.BoolVar(&c.Restore, "r", true, "leave true to restore previous state")
+	flag.IntVar(&c.StoreInterval, "i", 300, "time between state saves")
 	flag.Parse()
 }
 

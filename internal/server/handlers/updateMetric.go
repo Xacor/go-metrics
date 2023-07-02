@@ -120,7 +120,7 @@ func (api *API) UpdateJSON(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	json, err := json.Marshal(result)
+	json, err := json.Marshal(&result)
 	if err != nil {
 		api.logger.Error(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
