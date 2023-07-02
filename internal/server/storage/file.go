@@ -20,6 +20,10 @@ func Save(path string, repo MetricRepo) error {
 	defer file.Close()
 
 	json, err := json.MarshalIndent(data, "", "    ")
+	if err != nil {
+		return err
+	}
+
 	json = append(json, '\n')
 
 	_, err = file.Write(json)
