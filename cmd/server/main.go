@@ -59,11 +59,13 @@ func main() {
 	}
 
 	l.Info(fmt.Sprintf("starting serving on %s", cfg.Address))
-	go srv.ListenAndServe()
+	go func() {
+		srv.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			l.Fatal(err.Error())
+		}
 
-	if err != nil {
-		l.Error(err.Error())
-	}
+	}()
 
 	go func() {
 		t := time.NewTicker(time.Duration(cfg.StoreInterval) * time.Second)
