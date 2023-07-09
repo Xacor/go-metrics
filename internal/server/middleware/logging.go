@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Xacor/go-metrics/internal/server/logger"
+	"github.com/Xacor/go-metrics/internal/logger"
 
 	"go.uber.org/zap"
 )
@@ -36,7 +36,9 @@ func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 
 // NewLogger возвращает новую logger-мидлвару
 func WithLogging(next http.Handler) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
+	l := logger.Get()
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
 		responseData := &responseData{
@@ -52,7 +54,7 @@ func WithLogging(next http.Handler) http.Handler {
 
 		duration := time.Since(start)
 
-		logger.Log.Info("got incoming HTTP request",
+		l.Info("got incoming HTTP request",
 			zap.String("method", r.Method),
 			zap.String("uri", r.RequestURI),
 			zap.Int("status", responseData.status),
@@ -60,6 +62,5 @@ func WithLogging(next http.Handler) http.Handler {
 			zap.Int("size", responseData.size),
 		)
 
-	}
-	return http.HandlerFunc(fn)
+	})
 }

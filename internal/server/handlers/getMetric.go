@@ -84,7 +84,7 @@ func (api *API) MetricJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	api.logger.Info(fmt.Sprintf("responsed metric %+v", result))
+	api.logger.Debug(fmt.Sprintf("responsed metric %+v", result))
 
 	json, err := json.Marshal(result)
 	if err != nil {

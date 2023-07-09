@@ -7,11 +7,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
+	"github.com/Xacor/go-metrics/internal/logger"
 	"github.com/Xacor/go-metrics/internal/server/config"
 	"github.com/Xacor/go-metrics/internal/server/handlers"
-	"github.com/Xacor/go-metrics/internal/server/logger"
 	"github.com/Xacor/go-metrics/internal/server/middleware"
 	"github.com/Xacor/go-metrics/internal/server/storage"
 	"github.com/go-chi/chi/v5"
@@ -19,8 +20,9 @@ import (
 )
 
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
+
+	gracefullShutdown := make(chan os.Signal, 1)
+	signal.Notify(gracefullShutdown, syscall.SIGINT, syscall.SIGTERM)
 
 	cfg := config.Config{}
 	err := cfg.ParseAll()
@@ -31,21 +33,24 @@ func main() {
 	if err := logger.Initialize(cfg.LogLevel); err != nil {
 		log.Fatalf("can't initialize zap logger: %v", err)
 	}
+	l := logger.Get()
 
 	r := chi.NewRouter()
 	r.Use(middleware.WithLogging)
-	r.Use(middleware.WithCompression)
+	r.Use(middleware.WithCompressRead)
+	r.Use(middleware.WithCompressWrite)
 	r.Use(chimiddleware.Recoverer)
 
-	s := storage.NewMemStorage()
+	ms := storage.NewMemStorage()
+	fs, err := storage.NewFileStorage(cfg.FileStoragePath)
 
 	if cfg.Restore {
-		if err := storage.Load(cfg.FileStoragePath, s); err != nil {
-			logger.Log.Error(err.Error())
+		if err := fs.Load(ms); err != nil {
+			l.Error(err.Error())
 		}
 	}
 
-	api := handlers.NewAPI(s, logger.Log)
+	api := handlers.NewAPI(ms, l)
 	api.RegisterRoutes(r)
 
 	srv := http.Server{
@@ -53,36 +58,39 @@ func main() {
 		Handler: r,
 	}
 
-	logger.Log.Info(fmt.Sprintf("starting serving on %s", cfg.Address))
+	l.Info(fmt.Sprintf("starting serving on %s", cfg.Address))
 	go srv.ListenAndServe()
+
+	if err != nil {
+		l.Error(err.Error())
+	}
 
 	go func() {
 		t := time.NewTicker(time.Duration(cfg.StoreInterval) * time.Second)
 		for range t.C {
-			logger.Log.Info("saving current state")
-			err = storage.Save(cfg.FileStoragePath, s)
+			l.Debug("saving current state")
+			err = fs.Save(ms)
 			if err != nil {
-				logger.Log.Error(err.Error())
+				l.Error(err.Error())
 			}
 		}
 	}()
 
-	<-ctx.Done()
+	<-gracefullShutdown
 
-	stop()
-
-	logger.Log.Info("shutting down")
+	l.Info("shutting down")
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	err = storage.Save(cfg.FileStoragePath, s)
+	err = fs.Save(ms)
 	if err != nil {
-		logger.Log.Error(err.Error())
+		l.Error(err.Error())
 	}
 
 	if err := srv.Shutdown(timeoutCtx); err != nil {
-		logger.Log.Error(err.Error())
+		l.Error(err.Error())
 	}
 
-	defer logger.Log.Sync()
+	defer l.Sync()
+
 }

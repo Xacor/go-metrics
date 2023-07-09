@@ -5,8 +5,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-
-	"github.com/Xacor/go-metrics/internal/server/logger"
 )
 
 type compressWriter struct {
@@ -76,43 +74,37 @@ func (c *compressReader) Close() error {
 	return c.zr.Close()
 }
 
-func WithCompression(next http.Handler) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		ow := w
-
-		// проверяем, что клиент поддерживает gzip
-		supportsGzip := false
-		for _, acceptEncoding := range r.Header.Values("Accept-Encoding") {
-			supportsGzip = strings.Contains(acceptEncoding, "gzip")
-			if supportsGzip {
-				break
-			}
-		}
-
-		if supportsGzip {
-			cw := newCompressWriter(w)
-			defer cw.Close()
-
-			ow = cw
-		}
-
-		// проверяем, что клиент отправил gzip
-		contentEncoding := r.Header.Get("Content-Encoding")
-		sendsGzip := strings.Contains(contentEncoding, "gzip")
+func WithCompressRead(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sendsGzip := strings.Contains(r.Header.Get("Content-Encoding"), "gzip")
 		if sendsGzip {
 			cr, err := newCompressReader(r.Body)
 			if err != nil {
-				logger.Log.Error(err.Error())
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 			defer cr.Close()
-
 			r.Body = cr
 		}
 
-		next.ServeHTTP(ow, r)
+		next.ServeHTTP(w, r)
+	})
+}
 
-	}
-	return http.HandlerFunc(fn)
+func WithCompressWrite(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ow := w
+		for _, acceptEncoding := range r.Header.Values("Accept-Encoding") {
+			supportsGzip := strings.Contains(acceptEncoding, "gzip")
+			if supportsGzip {
+				cw := newCompressWriter(w)
+				ow = cw
+				defer cw.Close()
+
+				break
+			}
+		}
+
+		next.ServeHTTP(ow, r)
+	})
 }

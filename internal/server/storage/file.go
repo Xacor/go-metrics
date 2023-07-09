@@ -7,60 +7,50 @@ import (
 	"github.com/Xacor/go-metrics/internal/server/model"
 )
 
-func Save(path string, repo MetricRepo) error {
+type FileStorage struct {
+	file *os.File
+}
+
+func NewFileStorage(path string) (*FileStorage, error) {
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		return nil, err
+	}
+
+	return &FileStorage{file: f}, nil
+}
+
+func (fs *FileStorage) Save(repo MetricRepo) error {
 	data, err := repo.All()
 	if err != nil {
 		return err
 	}
+	fs.file.Truncate(0)
+	fs.file.Seek(0, 0)
 
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
+	enc := json.NewEncoder(fs.file)
 
-	json, err := json.MarshalIndent(data, "", "    ")
-	if err != nil {
+	if err := enc.Encode(data); err != nil {
 		return err
 	}
 
-	json = append(json, '\n')
-
-	_, err = file.Write(json)
-
-	return err
+	return nil
 }
 
-func Load(path string, repo MetricRepo) error {
-	file, err := os.OpenFile(path, os.O_RDONLY, 0666)
-	if err != nil {
+func (fs *FileStorage) Load(repo MetricRepo) error {
+
+	decoder := json.NewDecoder(fs.file)
+
+	m := make([]model.Metrics, 20)
+
+	if err := decoder.Decode(&m); err != nil {
 		return err
 	}
-	defer file.Close()
 
-	decoder := json.NewDecoder(file)
-
-	_, err = decoder.Token()
-	if err != nil {
-		return err
-	}
-	for decoder.More() {
-		var m model.Metrics
-
-		err := decoder.Decode(&m)
-		if err != nil {
+	for _, v := range m {
+		if _, err := repo.Create(v); err != nil {
 			return err
 		}
-
-		_, err = repo.Create(m)
-		if err != nil {
-			return err
-		}
-	}
-
-	_, err = decoder.Token()
-	if err != nil {
-		return err
 	}
 
 	return nil

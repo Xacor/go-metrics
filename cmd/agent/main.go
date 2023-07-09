@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/Xacor/go-metrics/internal/agent/config"
-	"github.com/Xacor/go-metrics/internal/agent/logger"
 	"github.com/Xacor/go-metrics/internal/agent/metric"
+	"github.com/Xacor/go-metrics/internal/logger"
 
 	poller "github.com/Xacor/go-metrics/internal/agent/http"
 )
@@ -21,6 +21,7 @@ func main() {
 	if err := logger.Initialize(cfg.LogLevel); err != nil {
 		log.Fatalf("can't initialize zap logger: %v", err)
 	}
+	l := logger.Get()
 
 	pcfg := poller.PollerConfig{
 		PollInterval:   cfg.GetPollInterval(),
@@ -28,11 +29,11 @@ func main() {
 		Address:        cfg.GetURL(),
 		Metrics:        metric.NewMetrics(),
 		Client:         &http.Client{},
-		Logger:         logger.Log,
+		Logger:         l,
 	}
 
 	poller := poller.NewPoller(&pcfg)
 	poller.Run()
 
-	defer logger.Log.Sync()
+	defer l.Sync()
 }

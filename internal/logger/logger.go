@@ -7,7 +7,7 @@ import (
 // Log будет доступен всему коду как синглтон.
 // Никакой код навыка, кроме функции InitLogger, не должен модифицировать эту переменную.
 // По умолчанию установлен no-op-логер, который не выводит никаких сообщений.
-var Log *zap.Logger = zap.NewNop()
+var log *zap.Logger = zap.NewNop()
 
 // Initialize инициализирует синглтон логера с необходимым уровнем логирования.
 func Initialize(level string) error {
@@ -26,6 +26,10 @@ func Initialize(level string) error {
 		return err
 	}
 	// устанавливаем синглтон
-	Log = zl
+	log = zl
 	return nil
+}
+
+func Get() *zap.Logger {
+	return log
 }
