@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Xacor/go-metrics/internal/logger"
 	"github.com/Xacor/go-metrics/internal/server/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
@@ -28,7 +30,12 @@ func testRequest(t *testing.T, ts *httptest.Server, method,
 }
 
 func TestAPI_UpdateRouter(t *testing.T) {
-	api := NewAPI(storage.NewMemStorage())
+	err := logger.Initialize("debug")
+	if err != nil {
+		log.Println(err)
+	}
+
+	api := NewAPI(storage.NewMemStorage(), logger.Get())
 
 	r := chi.NewRouter()
 	r.Post("/update/{metricType}/{metricID}/{metricValue}", api.UpdateHandler)

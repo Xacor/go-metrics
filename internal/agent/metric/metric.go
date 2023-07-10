@@ -1,7 +1,6 @@
 package metric
 
 import (
-	"log"
 	"math/rand"
 	"reflect"
 	"runtime"
@@ -45,15 +44,11 @@ type Metrics struct {
 
 // Returns up to date Metrics.
 func NewMetrics() *Metrics {
-	m := Metrics{}
-	m.Update()
-
-	return &m
+	return &Metrics{}
 }
 
 // Updates Metrics with up to date values.
 func (m *Metrics) Update() {
-	log.Println("updating metrics")
 	var runTime runtime.MemStats
 	runtime.ReadMemStats(&runTime)
 

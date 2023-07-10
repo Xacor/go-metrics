@@ -1,11 +1,12 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 
+	"github.com/Xacor/go-metrics/internal/server/model"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -26,7 +27,13 @@ func (api *API) MetricHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	valStr := fmt.Sprintf("%v", data.Value)
+	var valStr string
+	switch data.MType {
+	case model.TypeCounter:
+		valStr = fmt.Sprintf("%v", *data.Delta)
+	case model.TypeGauge:
+		valStr = fmt.Sprintf("%v", *data.Value)
+	}
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.Write([]byte(valStr))
@@ -35,17 +42,58 @@ func (api *API) MetricHandler(w http.ResponseWriter, r *http.Request) {
 func (api *API) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	data, err := api.repo.All()
 	if err != nil {
-		log.Println(err)
+		api.logger.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	resp, err := json.Marshal(data)
 	if err != nil {
-		log.Println(err)
+		api.logger.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html")
 	w.Write(resp)
+}
+
+func (api *API) MetricJSON(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Content-Type") != "application/json" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var metric model.Metrics
+	var buf bytes.Buffer
+
+	if _, err := buf.ReadFrom(r.Body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := json.Unmarshal(buf.Bytes(), &metric); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	api.logger.Info(fmt.Sprintf("requested metric %+v", metric))
+	result, err := api.repo.Get(metric.ID)
+
+	if err != nil {
+		api.logger.Info("metric not found")
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	api.logger.Debug(fmt.Sprintf("responsed metric %+v", result))
+
+	json, err := json.Marshal(result)
+	if err != nil {
+		api.logger.Error(err.Error())
+		w.Write([]byte(err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(json)
 }

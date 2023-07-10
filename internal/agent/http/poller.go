@@ -1,15 +1,26 @@
 package http
 
 import (
-	"log"
+	"bytes"
+	"compress/gzip"
+	"encoding/json"
+	"fmt"
 	"net/http"
-	"net/url"
 	"reflect"
-	"strconv"
 	"time"
 
 	"github.com/Xacor/go-metrics/internal/agent/metric"
+	"go.uber.org/zap"
 )
+
+type PollerConfig struct {
+	PollInterval   int
+	ReportInterval int
+	Address        string
+	Metrics        *metric.Metrics
+	Client         *http.Client
+	Logger         *zap.Logger
+}
 
 type Poller struct {
 	pollInterval   int
@@ -17,28 +28,31 @@ type Poller struct {
 	address        string
 	metrics        *metric.Metrics
 	client         *http.Client
+	logger         *zap.Logger
 }
 
-func NewPoller(pollInterval, reportInterval int, address string, metrics *metric.Metrics, client *http.Client) *Poller {
+func NewPoller(cfg *PollerConfig) *Poller {
 	return &Poller{
-		pollInterval:   pollInterval,
-		reportInterval: reportInterval,
-		address:        address,
-		metrics:        metrics,
-		client:         client,
+		pollInterval:   cfg.PollInterval,
+		reportInterval: cfg.ReportInterval,
+		address:        cfg.Address,
+		metrics:        cfg.Metrics,
+		client:         cfg.Client,
+		logger:         cfg.Logger,
 	}
 }
 
 func (p *Poller) Run() {
-	log.Println("poller started")
+	p.logger.Info("poller started")
 	for i := 0; ; i++ {
 		time.Sleep(time.Second * 1)
 		if i%p.pollInterval == 0 {
+			p.logger.Info("updating metric values")
 			p.metrics.Update()
 		}
 		if i%p.reportInterval == 0 {
 			if err := p.SendRequests(); err != nil {
-				log.Println(err)
+				p.logger.Error(err.Error())
 			}
 		}
 	}
@@ -47,40 +61,88 @@ func (p *Poller) Run() {
 func (p *Poller) SendRequests() error {
 	values := reflect.ValueOf(p.metrics).Elem()
 	types := values.Type()
+	var metric Metrics
+
 	for i := 0; i < values.NumField(); i++ {
 		field := types.Field(i)
 		value := values.Field(i)
-		var strVal, strType string
 
 		switch value.Kind() {
 		case reflect.Uint64:
-			strVal = strconv.FormatUint(value.Uint(), 10)
-			strType = "counter"
-
+			v := int64(value.Uint())
+			metric = Metrics{
+				ID:    field.Name,
+				MType: TypeCounter,
+				Delta: &v,
+			}
 		case reflect.Int64:
-			strVal = strconv.FormatInt(value.Int(), 10)
-			strType = "counter"
-
+			v := value.Int()
+			metric = Metrics{
+				ID:    field.Name,
+				MType: TypeCounter,
+				Delta: &v,
+			}
 		case reflect.Float64:
-			strVal = strconv.FormatFloat(value.Float(), 'f', -1, 64)
-			strType = "gauge"
+			v := value.Float()
+			metric = Metrics{
+				ID:    field.Name,
+				MType: TypeGauge,
+				Value: &v,
+			}
 
 		default:
-			log.Println("unexpected kind:", value.Kind(), value)
+			p.logger.Info(fmt.Sprintf("unexpected kind: %v, value: %v", value.Kind(), value))
 		}
 
-		url, err := url.JoinPath(p.address, "update", strType, field.Name, strVal)
+		json, err := json.Marshal(metric)
 		if err != nil {
-			return err
+			p.logger.Error(err.Error())
+			continue
 		}
 
-		resp, err := http.Post(url, "text/plain", nil)
+		compressed, err := p.Compress(json)
 		if err != nil {
-			log.Println(err)
+			p.logger.Error(err.Error())
+			continue
 		}
 
-		log.Println(url, resp.StatusCode)
-		resp.Body.Close()
+		reader := bytes.NewReader(compressed)
+
+		request, err := http.NewRequest(http.MethodPost, p.address+"/update/", reader)
+		if err != nil {
+			p.logger.Error(err.Error())
+			continue
+		}
+
+		request.Header.Set("Content-Encoding", "gzip")
+		request.Header.Set("Content-Type", "application/json")
+		resp, err := p.client.Do(request)
+		if err != nil {
+			p.logger.Error(err.Error())
+			continue
+		}
+
+		err = resp.Body.Close()
+		if err != nil {
+			p.logger.Error(err.Error())
+		}
 	}
 	return nil
+}
+
+func (p *Poller) Compress(data []byte) ([]byte, error) {
+	var b bytes.Buffer
+
+	w := gzip.NewWriter(&b)
+	_, err := w.Write(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed write data to compress temporary buffer: %v", err)
+	}
+
+	err = w.Close()
+	if err != nil {
+		return nil, fmt.Errorf("failed compress data: %v", err)
+	}
+
+	return b.Bytes(), nil
 }
