@@ -12,7 +12,8 @@ import (
 
 	"github.com/Xacor/go-metrics/internal/logger"
 	"github.com/Xacor/go-metrics/internal/server/config"
-	"github.com/Xacor/go-metrics/internal/server/handlers"
+	"github.com/Xacor/go-metrics/internal/server/handlers/database"
+	"github.com/Xacor/go-metrics/internal/server/handlers/metrics"
 	"github.com/Xacor/go-metrics/internal/server/middleware"
 	"github.com/Xacor/go-metrics/internal/server/storage"
 	"github.com/go-chi/chi/v5"
@@ -42,16 +43,28 @@ func main() {
 	r.Use(chimiddleware.Recoverer)
 
 	ms := storage.NewMemStorage()
-	fs, err := storage.NewFileStorage(cfg.FileStoragePath)
+	if err != nil {
+		l.Fatal(err.Error())
+	}
+	api := metrics.NewAPI(ms, l)
+	api.RegisterRoutes(r)
 
+	fs, err := storage.NewFileStorage(cfg.FileStoragePath)
+	if err != nil {
+		l.Fatal(err.Error())
+	}
 	if cfg.Restore {
 		if err := fs.Load(ms); err != nil {
 			l.Error(err.Error())
 		}
 	}
 
-	api := handlers.NewAPI(ms, l)
-	api.RegisterRoutes(r)
+	db, err := storage.NewPostgreStorage(cfg.DatabaseDSN)
+	if err != nil {
+		l.Error(err.Error())
+	}
+	databaseApi := database.NewDBHandler(db)
+	databaseApi.RegisterRoutes(r)
 
 	srv := http.Server{
 		Addr:    cfg.Address,

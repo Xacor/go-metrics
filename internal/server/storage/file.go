@@ -20,7 +20,7 @@ func NewFileStorage(path string) (*FileStorage, error) {
 	return &FileStorage{file: f}, nil
 }
 
-func (fs *FileStorage) Save(repo MetricRepo) error {
+func (fs *FileStorage) Save(repo Storage) error {
 	data, err := repo.All()
 	if err != nil {
 		return err
@@ -37,7 +37,7 @@ func (fs *FileStorage) Save(repo MetricRepo) error {
 	return nil
 }
 
-func (fs *FileStorage) Load(repo MetricRepo) error {
+func (fs *FileStorage) Load(repo Storage) error {
 
 	decoder := json.NewDecoder(fs.file)
 
