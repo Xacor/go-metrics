@@ -2,27 +2,29 @@ package storage
 
 import (
 	"database/sql"
+	"errors"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type PostgreStorage struct {
-	db         *sql.DB
-	MetricRepo // !!!
+	db *sql.DB
 }
 
 func NewPostgreStorage(dsn string) (*PostgreStorage, error) {
-	db, err := sql.Open("pgx", dsn)
+	if dsn == "" {
+		return nil, errors.New("empty data source")
+	}
+	conn, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := db.Ping(); err != nil {
+	if err := conn.Ping(); err != nil {
 		return nil, err
 	}
 
-	// CHANGE INTERFACE INITIALIZATION!!!
-	return &PostgreStorage{db: db, MetricRepo: NewMemStorage()}, nil
+	return &PostgreStorage{db: conn}, nil
 }
 
 func (s *PostgreStorage) Ping() error {
