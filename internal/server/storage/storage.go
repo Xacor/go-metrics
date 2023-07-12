@@ -7,11 +7,20 @@ import (
 	"github.com/Xacor/go-metrics/internal/server/model"
 )
 
+type Storage interface {
+	MetricRepo
+	Pinger
+}
+
 type MetricRepo interface {
 	All() ([]model.Metrics, error)
 	Get(id string) (model.Metrics, error)
 	Create(model.Metrics) (model.Metrics, error)
 	Update(model.Metrics) (model.Metrics, error)
+}
+
+type Pinger interface {
+	Ping() error
 }
 
 type MemStorage struct {
@@ -23,6 +32,10 @@ func NewMemStorage() *MemStorage {
 	return &MemStorage{
 		data: make(map[string]model.Metrics),
 	}
+}
+
+func (mem *MemStorage) Ping() error {
+	return nil
 }
 
 func (mem *MemStorage) All() ([]model.Metrics, error) {

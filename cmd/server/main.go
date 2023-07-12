@@ -41,9 +41,16 @@ func main() {
 	r.Use(middleware.WithCompressWrite)
 	r.Use(chimiddleware.Recoverer)
 
-	ms := storage.NewMemStorage()
-	fs, err := storage.NewFileStorage(cfg.FileStoragePath)
+	ms, err := storage.NewPostgreStorage(cfg.DatabaseDSN)
+	if err != nil {
+		l.Fatal(err.Error())
+	}
+	defer ms.Close()
 
+	fs, err := storage.NewFileStorage(cfg.FileStoragePath)
+	if err != nil {
+		l.Fatal(err.Error())
+	}
 	if cfg.Restore {
 		if err := fs.Load(ms); err != nil {
 			l.Error(err.Error())

@@ -7,17 +7,18 @@ import (
 )
 
 type API struct {
-	repo   storage.MetricRepo
+	repo   storage.Storage
 	logger *zap.Logger
 }
 
-func NewAPI(repo storage.MetricRepo, logger *zap.Logger) *API {
+func NewAPI(repo storage.Storage, logger *zap.Logger) *API {
 
 	return &API{repo: repo, logger: logger}
 }
 
 func (api *API) RegisterRoutes(router *chi.Mux) {
 	router.Get("/", api.MetricsHandler)
+	router.Get("/ping", api.Ping)
 
 	router.Route("/value", func(r chi.Router) {
 		r.Post("/", api.MetricJSON)
