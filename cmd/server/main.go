@@ -61,7 +61,7 @@ func main() {
 
 	db, err := storage.NewPostgreStorage(cfg.DatabaseDSN)
 	if err != nil {
-		l.Fatal(err.Error())
+		l.Error(err.Error())
 	}
 	databaseApi := database.NewDBHandler(db)
 	databaseApi.RegisterRoutes(r)
