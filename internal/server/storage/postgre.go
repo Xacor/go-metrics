@@ -178,6 +178,11 @@ func (s *PostgreStorage) UpdateBatch(ctx context.Context, metrics []model.Metric
 		return err
 	}
 
+	query, err := tx.PrepareContext(ctx, "SELECT name, mtype, delta, value FROM metrics WHERE name = $1;")
+	if err != nil {
+		return err
+	}
+
 	create, err := tx.PrepareContext(ctx, "INSERT INTO metrics (name, mtype, delta, value) VALUES($1,$2,$3,$4);")
 	if err != nil {
 		return err
@@ -191,7 +196,7 @@ func (s *PostgreStorage) UpdateBatch(ctx context.Context, metrics []model.Metric
 	defer update.Close()
 
 	for _, m := range metrics {
-		if _, err := s.Get(ctx, m.Name); err == sql.ErrNoRows {
+		if _, err := query.QueryContext(ctx, m.Name); err == sql.ErrNoRows {
 			if _, err := create.ExecContext(ctx, m.Name, m.MType, m.Delta, m.Value); err != nil {
 				tx.Rollback()
 				return fmt.Errorf("error inserting metric: %+v, error: %w", m, err)
