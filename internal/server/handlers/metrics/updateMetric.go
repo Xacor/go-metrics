@@ -152,7 +152,7 @@ func (api *API) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := api.repo.UpdateBatch(r.Context(), metrics); err != nil {
-		api.logger.Error("error when updating batch", zap.Error(err))
+		api.logger.Error("error when updating batch", zap.Error(err), zap.Any("batch", metrics))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

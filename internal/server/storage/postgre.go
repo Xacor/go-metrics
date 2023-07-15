@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/Xacor/go-metrics/internal/server/model"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -193,12 +194,12 @@ func (s *PostgreStorage) UpdateBatch(ctx context.Context, metrics []model.Metric
 		if _, err := s.Get(ctx, m.Name); err == sql.ErrNoRows {
 			if _, err := create.ExecContext(ctx, m.Name, m.MType, m.Delta, m.Value); err != nil {
 				tx.Rollback()
-				return err
+				return fmt.Errorf("error inserting metric: %+v, error: %w", m, err)
 			}
 		} else {
 			if _, err := update.ExecContext(ctx, m.Delta, m.Value, m.Name); err != nil {
 				tx.Rollback()
-				return err
+				return fmt.Errorf("error updating metric: %+v, error: %w", m, err)
 			}
 		}
 	}
