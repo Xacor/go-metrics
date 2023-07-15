@@ -78,12 +78,9 @@ func main() {
 	if err != nil {
 		l.Fatal(err.Error())
 	}
-	if cfg.Restore {
 
-	}
-
-	databaseApi := database.NewDBHandler(repo)
-	databaseApi.RegisterRoutes(r)
+	databaseAPI := database.NewDBHandler(repo)
+	databaseAPI.RegisterRoutes(r)
 
 	srv := http.Server{
 		Addr:    cfg.Address,
