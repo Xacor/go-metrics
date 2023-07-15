@@ -1,27 +1,12 @@
 package storage
 
 import (
+	"context"
 	"errors"
 	"sync"
 
 	"github.com/Xacor/go-metrics/internal/server/model"
 )
-
-type Storage interface {
-	MetricRepo
-	Pinger
-}
-
-type MetricRepo interface {
-	All() ([]model.Metrics, error)
-	Get(id string) (model.Metrics, error)
-	Create(model.Metrics) (model.Metrics, error)
-	Update(model.Metrics) (model.Metrics, error)
-}
-
-type Pinger interface {
-	Ping() error
-}
 
 type MemStorage struct {
 	data map[string]model.Metrics
@@ -34,11 +19,11 @@ func NewMemStorage() *MemStorage {
 	}
 }
 
-func (mem *MemStorage) Ping() error {
+func (mem *MemStorage) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (mem *MemStorage) All() ([]model.Metrics, error) {
+func (mem *MemStorage) All(ctx context.Context) ([]model.Metrics, error) {
 	mem.mu.Lock()
 	defer mem.mu.Unlock()
 
@@ -50,36 +35,36 @@ func (mem *MemStorage) All() ([]model.Metrics, error) {
 	return result, nil
 }
 
-func (mem *MemStorage) Get(id string) (model.Metrics, error) {
+func (mem *MemStorage) Get(ctx context.Context, name string) (model.Metrics, error) {
 	mem.mu.Lock()
 	defer mem.mu.Unlock()
 
-	val, ok := mem.data[id]
+	val, ok := mem.data[name]
 	if !ok {
-		return model.Metrics{}, errors.New("metric with this id not found")
+		return model.Metrics{}, errors.New("metric with this Name not found")
 	}
 	return val, nil
 }
 
-func (mem *MemStorage) Create(metric model.Metrics) (model.Metrics, error) {
+func (mem *MemStorage) Create(ctx context.Context, metric model.Metrics) (model.Metrics, error) {
 	mem.mu.Lock()
 	defer mem.mu.Unlock()
 
-	_, exist := mem.data[metric.ID]
+	_, exist := mem.data[metric.Name]
 	if exist {
-		return model.Metrics{}, errors.New("metric with this id already exists")
+		return model.Metrics{}, errors.New("metric with this Name already exists")
 	}
 
-	mem.data[metric.ID] = metric
-	return mem.data[metric.ID], nil
+	mem.data[metric.Name] = metric
+	return mem.data[metric.Name], nil
 }
 
-func (mem *MemStorage) Update(metric model.Metrics) (model.Metrics, error) {
+func (mem *MemStorage) Update(ctx context.Context, metric model.Metrics) (model.Metrics, error) {
 	mem.mu.Lock()
 	defer mem.mu.Unlock()
 
 	// получение существующего экземпляра
-	obj, exist := mem.data[metric.ID]
+	obj, exist := mem.data[metric.Name]
 	if !exist {
 		return model.Metrics{}, errors.New("metric doesnt exist")
 	}
@@ -94,9 +79,9 @@ func (mem *MemStorage) Update(metric model.Metrics) (model.Metrics, error) {
 	}
 
 	// запись в мапу
-	mem.data[metric.ID] = obj
+	mem.data[metric.Name] = obj
 
-	return mem.data[metric.ID], nil
+	return mem.data[metric.Name], nil
 }
 
 func addDelta(delta *int64, dst *model.Metrics) {

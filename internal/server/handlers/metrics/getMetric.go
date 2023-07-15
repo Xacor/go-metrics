@@ -22,7 +22,7 @@ func (api *API) MetricHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := api.repo.Get(metricID)
+	data, err := api.repo.Get(r.Context(), metricID)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -40,7 +40,7 @@ func (api *API) MetricHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *API) MetricsHandler(w http.ResponseWriter, r *http.Request) {
-	data, err := api.repo.All()
+	data, err := api.repo.All(r.Context())
 	if err != nil {
 		api.logger.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -76,7 +76,7 @@ func (api *API) MetricJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	api.logger.Info(fmt.Sprintf("requested metric %+v", metric))
-	result, err := api.repo.Get(metric.ID)
+	result, err := api.repo.Get(r.Context(), metric.Name)
 
 	if err != nil {
 		api.logger.Info("metric not found")

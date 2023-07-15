@@ -18,6 +18,7 @@ import (
 	"github.com/Xacor/go-metrics/internal/server/storage"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -34,7 +35,9 @@ func main() {
 	if err := logger.Initialize(cfg.LogLevel); err != nil {
 		log.Fatalf("can't initialize zap logger: %v", err)
 	}
+
 	l := logger.Get()
+	defer l.Sync()
 
 	r := chi.NewRouter()
 	r.Use(middleware.WithLogging)
@@ -42,11 +45,33 @@ func main() {
 	r.Use(middleware.WithCompressWrite)
 	r.Use(chimiddleware.Recoverer)
 
-	ms := storage.NewMemStorage()
-	if err != nil {
-		l.Fatal(err.Error())
+	var repo storage.Storage
+
+	if cfg.DatabaseDSN != "" {
+		ctx, cancelfunc := context.WithTimeout(context.Background(), 500*time.Millisecond)
+		defer cancelfunc()
+		postgre, err := storage.NewPostgreStorage(ctx, cfg.DatabaseDSN, l)
+		if err != nil {
+			l.Fatal("can't init db connection", zap.Error(err))
+		}
+		defer postgre.Close()
+		repo = postgre
+
+	} else if cfg.Restore {
+		repo = storage.NewMemStorage()
+		fs, err := storage.NewFileStorage(cfg.FileStoragePath)
+		if err != nil {
+			l.Error("cant'init file storage", zap.Error(err))
+		}
+		if err := fs.Load(repo); err != nil {
+			l.Error("can't restore data from file", zap.Error(err))
+		}
+
+	} else {
+		repo = storage.NewMemStorage()
 	}
-	api := metrics.NewAPI(ms, l)
+
+	api := metrics.NewAPI(repo, l)
 	api.RegisterRoutes(r)
 
 	fs, err := storage.NewFileStorage(cfg.FileStoragePath)
@@ -54,16 +79,10 @@ func main() {
 		l.Fatal(err.Error())
 	}
 	if cfg.Restore {
-		if err := fs.Load(ms); err != nil {
-			l.Error(err.Error())
-		}
+
 	}
 
-	db, err := storage.NewPostgreStorage(cfg.DatabaseDSN)
-	if err != nil {
-		l.Error(err.Error())
-	}
-	databaseApi := database.NewDBHandler(db)
+	databaseApi := database.NewDBHandler(repo)
 	databaseApi.RegisterRoutes(r)
 
 	srv := http.Server{
@@ -84,7 +103,7 @@ func main() {
 		t := time.NewTicker(time.Duration(cfg.StoreInterval) * time.Second)
 		for range t.C {
 			l.Debug("saving current state")
-			err = fs.Save(ms)
+			err = fs.Save(repo)
 			if err != nil {
 				l.Error(err.Error())
 			}
@@ -97,15 +116,11 @@ func main() {
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	err = fs.Save(ms)
-	if err != nil {
+	if err := fs.Save(repo); err != nil {
 		l.Error(err.Error())
 	}
 
 	if err := srv.Shutdown(timeoutCtx); err != nil {
 		l.Error(err.Error())
 	}
-
-	defer l.Sync()
-
 }

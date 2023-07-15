@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 
@@ -21,7 +22,7 @@ func NewFileStorage(path string) (*FileStorage, error) {
 }
 
 func (fs *FileStorage) Save(repo Storage) error {
-	data, err := repo.All()
+	data, err := repo.All(context.Background())
 	if err != nil {
 		return err
 	}
@@ -48,7 +49,7 @@ func (fs *FileStorage) Load(repo Storage) error {
 	}
 
 	for _, v := range m {
-		if _, err := repo.Create(v); err != nil {
+		if _, err := repo.Create(context.Background(), v); err != nil {
 			return err
 		}
 	}
