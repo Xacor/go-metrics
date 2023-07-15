@@ -84,6 +84,23 @@ func (mem *MemStorage) Update(ctx context.Context, metric model.Metrics) (model.
 	return mem.data[metric.Name], nil
 }
 
+func (mem *MemStorage) UpdateBatch(ctx context.Context, metrics []model.Metrics) error {
+	for _, m := range metrics {
+		_, exist := mem.Get(ctx, m.Name)
+		if exist == nil {
+			if _, err := mem.Create(ctx, m); err != nil {
+				return err
+			}
+		} else {
+			if _, err := mem.Update(ctx, m); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func addDelta(delta *int64, dst *model.Metrics) {
 	*dst.Delta = *dst.Delta + *delta
 }

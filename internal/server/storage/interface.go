@@ -16,6 +16,7 @@ type MetricRepo interface {
 	Get(ctx context.Context, name string) (model.Metrics, error)
 	Create(ctx context.Context, metric model.Metrics) (model.Metrics, error)
 	Update(ctx context.Context, metric model.Metrics) (model.Metrics, error)
+	UpdateBatch(ctx context.Context, metrics []model.Metrics) error
 }
 
 type Pinger interface {

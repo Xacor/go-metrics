@@ -8,6 +8,7 @@ import (
 
 	"github.com/Xacor/go-metrics/internal/server/model"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
 func (api *API) UpdateHandler(w http.ResponseWriter, r *http.Request) {
@@ -129,4 +130,32 @@ func (api *API) UpdateJSON(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(json)
+}
+
+func (api *API) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Content-Type") != "application/json" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var metrics []model.Metrics
+	var buf bytes.Buffer
+
+	if _, err := buf.ReadFrom(r.Body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := json.Unmarshal(buf.Bytes(), &metrics); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := api.repo.UpdateBatch(r.Context(), metrics); err != nil {
+		api.logger.Error("error when updating batch", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

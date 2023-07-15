@@ -28,4 +28,6 @@ func (api *API) RegisterRoutes(router *chi.Mux) {
 		r.Post("/", api.UpdateJSON)
 		r.Post("/{metricType}/{metricID}/{metricValue}", api.UpdateHandler)
 	})
+
+	router.Post("/updates/", api.UpdateMetrics)
 }
