@@ -46,6 +46,7 @@ func main() {
 	r.Use(chimiddleware.Recoverer)
 
 	var repo storage.Storage
+	var fs storage.FileStorage
 
 	if cfg.DatabaseDSN != "" {
 		ctx, cancelfunc := context.WithTimeout(context.Background(), 500*time.Millisecond)
@@ -67,17 +68,23 @@ func main() {
 			l.Error("can't restore data from file", zap.Error(err))
 		}
 
+		go func() {
+			t := time.NewTicker(time.Duration(cfg.StoreInterval) * time.Second)
+			for range t.C {
+				l.Debug("saving current state")
+				err = fs.Save(repo)
+				if err != nil {
+					l.Error(err.Error())
+				}
+			}
+		}()
+
 	} else {
 		repo = storage.NewMemStorage()
 	}
 
-	api := metrics.NewAPI(repo, l)
-	api.RegisterRoutes(r)
-
-	fs, err := storage.NewFileStorage(cfg.FileStoragePath)
-	if err != nil {
-		l.Fatal(err.Error())
-	}
+	metricsAPI := metrics.NewAPI(repo, l)
+	metricsAPI.RegisterRoutes(r)
 
 	databaseAPI := database.NewDBHandler(repo)
 	databaseAPI.RegisterRoutes(r)
@@ -92,18 +99,6 @@ func main() {
 		srv.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
 			l.Fatal(err.Error())
-		}
-
-	}()
-
-	go func() {
-		t := time.NewTicker(time.Duration(cfg.StoreInterval) * time.Second)
-		for range t.C {
-			l.Debug("saving current state")
-			err = fs.Save(repo)
-			if err != nil {
-				l.Error(err.Error())
-			}
 		}
 	}()
 
