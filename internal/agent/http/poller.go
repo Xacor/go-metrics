@@ -61,11 +61,13 @@ func (p *Poller) Run() {
 func (p *Poller) SendRequests() error {
 	values := reflect.ValueOf(p.metrics).Elem()
 	types := values.Type()
-	var metric Metrics
+	var metrics []Metrics
 
 	for i := 0; i < values.NumField(); i++ {
 		field := types.Field(i)
 		value := values.Field(i)
+
+		var metric Metrics
 
 		switch value.Kind() {
 		case reflect.Uint64:
@@ -94,39 +96,34 @@ func (p *Poller) SendRequests() error {
 			p.logger.Info(fmt.Sprintf("unexpected kind: %v, value: %v", value.Kind(), value))
 		}
 
-		json, err := json.Marshal(metric)
-		if err != nil {
-			p.logger.Error(err.Error())
-			continue
-		}
-
-		compressed, err := p.Compress(json)
-		if err != nil {
-			p.logger.Error(err.Error())
-			continue
-		}
-
-		reader := bytes.NewReader(compressed)
-
-		request, err := http.NewRequest(http.MethodPost, p.address+"/update/", reader)
-		if err != nil {
-			p.logger.Error(err.Error())
-			continue
-		}
-
-		request.Header.Set("Content-Encoding", "gzip")
-		request.Header.Set("Content-Type", "application/json")
-		resp, err := p.client.Do(request)
-		if err != nil {
-			p.logger.Error(err.Error())
-			continue
-		}
-
-		err = resp.Body.Close()
-		if err != nil {
-			p.logger.Error(err.Error())
-		}
+		metrics = append(metrics, metric)
 	}
+
+	json, err := json.Marshal(metrics)
+	if err != nil {
+		return err
+	}
+
+	compressed, err := p.Compress(json)
+	if err != nil {
+		return err
+	}
+
+	reader := bytes.NewReader(compressed)
+
+	request, err := http.NewRequest(http.MethodPost, p.address+"/update/", reader)
+	if err != nil {
+		return err
+	}
+
+	request.Header.Set("Content-Encoding", "gzip")
+	request.Header.Set("Content-Type", "application/json")
+	resp, err := p.client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
 	return nil
 }
 
