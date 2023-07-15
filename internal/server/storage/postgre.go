@@ -161,7 +161,7 @@ func (s *PostgreStorage) Create(ctx context.Context, m model.Metrics) (model.Met
 
 func (s *PostgreStorage) Update(ctx context.Context, m model.Metrics) (model.Metrics, error) {
 	_, err := s.db.ExecContext(ctx,
-		"UPDATE metrics SET delta = $1, value = $2 WHERE name = $3;",
+		"UPDATE metrics SET delta = delta + $1, value = $2 WHERE name = $3;",
 		m.Delta, m.Value, m.Name,
 	)
 	if err != nil {
@@ -182,7 +182,7 @@ func (s *PostgreStorage) UpdateBatch(ctx context.Context, metrics []model.Metric
 		VALUES($1,$2,$3,$4) 
 		ON CONFLICT ON CONSTRAINT metrics_name_key 
 		DO
-		UPDATE SET delta = $3, value = $4;`,
+		UPDATE SET delta = delta + $3, value = $4;`,
 	)
 	if err != nil {
 		return err
