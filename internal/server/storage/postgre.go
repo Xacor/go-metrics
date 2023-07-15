@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 
 	"github.com/Xacor/go-metrics/internal/server/model"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -178,34 +177,22 @@ func (s *PostgreStorage) UpdateBatch(ctx context.Context, metrics []model.Metric
 		return err
 	}
 
-	query, err := tx.PrepareContext(ctx, "SELECT name, mtype, delta, value FROM metrics WHERE name = $1;")
+	upsert, err := tx.PrepareContext(ctx,
+		`INSERT INTO metrics (name, mtype, delta, value) 
+		VALUES($1,$2,$3,$4) 
+		ON CONFLICT ON CONSTRAINT metrics_name_key 
+		DO
+		UPDATE SET delta = $3, value = $4;`,
+	)
 	if err != nil {
 		return err
 	}
-
-	create, err := tx.PrepareContext(ctx, "INSERT INTO metrics (name, mtype, delta, value) VALUES($1,$2,$3,$4);")
-	if err != nil {
-		return err
-	}
-	defer create.Close()
-
-	update, err := tx.PrepareContext(ctx, "UPDATE metrics SET delta = $1, value = $2 WHERE name = $3;")
-	if err != nil {
-		return err
-	}
-	defer update.Close()
+	defer upsert.Close()
 
 	for _, m := range metrics {
-		if _, err := query.QueryContext(ctx, m.Name); err == sql.ErrNoRows {
-			if _, err := create.ExecContext(ctx, m.Name, m.MType, m.Delta, m.Value); err != nil {
-				tx.Rollback()
-				return fmt.Errorf("error inserting metric: %+v, error: %w", m, err)
-			}
-		} else {
-			if _, err := update.ExecContext(ctx, m.Delta, m.Value, m.Name); err != nil {
-				tx.Rollback()
-				return fmt.Errorf("error updating metric: %+v, error: %w", m, err)
-			}
+		_, err := upsert.ExecContext(ctx, m.Name, m.MType, m.Delta, m.Value)
+		if err != nil {
+			return err
 		}
 	}
 
