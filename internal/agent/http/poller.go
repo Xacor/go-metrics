@@ -111,7 +111,7 @@ func (p *Poller) SendRequests() error {
 
 	reader := bytes.NewReader(compressed)
 
-	request, err := http.NewRequest(http.MethodPost, p.address+"/update/", reader)
+	request, err := http.NewRequest(http.MethodPost, p.address+"/updates/", reader)
 	if err != nil {
 		return err
 	}
