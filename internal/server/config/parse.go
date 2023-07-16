@@ -29,5 +29,5 @@ func (c *Config) ParseAll() error {
 	c.ParseFlags()
 	err := c.ParseEnvs()
 
-	return fmt.Errorf("%w", err)
+	return err
 }
