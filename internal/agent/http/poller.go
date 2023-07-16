@@ -54,7 +54,7 @@ func (p *Poller) Run() {
 			if err := p.SendBatch(); err != nil {
 				p.logger.Error("failed to report metrics", zap.Error(err))
 				p.logger.Info("retrying to report metrics")
-				p.Retry(p.SendBatch)
+				p.retry(p.SendBatch)
 			}
 			p.metrics.PollCount = 0
 		}
@@ -144,9 +144,9 @@ func (p *Poller) Compress(data []byte) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func (p *Poller) Retry(fn func() error) {
-	var err error
+func (p *Poller) retry(fn func() error) {
 	attempts := 0
+	var err error
 	for i := 1; i < 5; i += 2 {
 		time.Sleep(time.Second * time.Duration(i))
 		if err = fn(); err == nil {
@@ -155,5 +155,4 @@ func (p *Poller) Retry(fn func() error) {
 		attempts++
 		p.logger.Error("attempt failed", zap.Error(err), zap.Int("attempt #", attempts))
 	}
-	return
 }

@@ -4,8 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/Xacor/go-metrics/internal/server/model"
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgerrcode"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 )
@@ -37,11 +40,19 @@ func NewPostgreStorage(ctx context.Context, dsn string, logger *zap.Logger) (*Po
 }
 
 func (s *PostgreStorage) Migrate(ctx context.Context) error {
+	var pgerr *pgconn.PgError
+
 	createType := `CREATE TABLE IF NOT EXISTS metric_types (
         type VARCHAR(10) PRIMARY KEY
 	);`
-	if _, err := s.db.ExecContext(ctx, createType); err != nil {
-		return errors.Join(ErrMigrationFailed, err)
+	_, err := s.db.ExecContext(ctx, createType)
+	if err != nil {
+		if errors.As(err, &pgerr) && pgerrcode.IsConnectionException(pgerr.Code) {
+			err = s.retryExecContext(ctx, createType)
+		}
+		if err != nil {
+			return err
+		}
 	}
 
 	insertType := `INSERT INTO metric_types (type) VALUES 
@@ -49,8 +60,14 @@ func (s *PostgreStorage) Migrate(ctx context.Context) error {
 		('gauge')
 		ON CONFLICT DO NOTHING
 		;`
-	if _, err := s.db.ExecContext(ctx, insertType); err != nil {
-		return errors.Join(ErrMigrationFailed, err)
+	_, err = s.db.ExecContext(ctx, insertType)
+	if err != nil {
+		if errors.As(err, &pgerr) && pgerrcode.IsConnectionException(pgerr.Code) {
+			err = s.retryExecContext(ctx, insertType)
+		}
+		if err != nil {
+			return err
+		}
 	}
 
 	createMetrics := `CREATE TABLE IF NOT EXISTS metrics (
@@ -60,17 +77,31 @@ func (s *PostgreStorage) Migrate(ctx context.Context) error {
         delta BIGINT CHECK ((delta IS NOT NULL AND mtype = 'counter') OR (delta IS NULL AND mtype = 'gauge')),
         value DOUBLE PRECISION CHECK ((value IS NOT NULL AND mtype = 'gauge') OR (value IS NULL AND mtype = 'counter'))
 	);`
-	if _, err := s.db.ExecContext(ctx, createMetrics); err != nil {
-		return errors.Join(ErrMigrationFailed, err)
+	_, err = s.db.ExecContext(ctx, createMetrics)
+	if err != nil {
+		if errors.As(err, &pgerr) && pgerrcode.IsConnectionException(pgerr.Code) {
+			err = s.retryExecContext(ctx, createMetrics)
+		}
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
 func (s *PostgreStorage) All(ctx context.Context) ([]model.Metrics, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT name, mtype, delta, value FROM metrics;")
+	var pgerr *pgconn.PgError
+
+	query := "SELECT name, mtype, delta, value FROM metrics;"
+	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
-		return nil, err
+		if errors.As(err, &pgerr) && pgerrcode.IsConnectionException(pgerr.Code) {
+			rows, err = s.retryQueryContext(ctx, query)
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 	defer rows.Close()
 
@@ -114,7 +145,22 @@ func (s *PostgreStorage) All(ctx context.Context) ([]model.Metrics, error) {
 }
 
 func (s *PostgreStorage) Get(ctx context.Context, name string) (model.Metrics, error) {
-	row := s.db.QueryRowContext(ctx, "SELECT name, mtype, delta, value FROM metrics WHERE name = $1;", name)
+	var pgerr *pgconn.PgError
+	var m model.Metrics
+
+	query := "SELECT name, mtype, delta, value FROM metrics WHERE name = $1;"
+
+	row := s.db.QueryRowContext(ctx, query, name)
+	err := row.Err()
+	if err != nil {
+		if errors.As(err, &pgerr) && pgerrcode.IsConnectionException(pgerr.Code) {
+			row = s.retryQueryRowContext(ctx, query)
+			err = row.Err()
+		}
+		if err != nil {
+			return m, err
+		}
+	}
 
 	var (
 		mname string
@@ -124,10 +170,9 @@ func (s *PostgreStorage) Get(ctx context.Context, name string) (model.Metrics, e
 	)
 
 	if err := row.Scan(&mname, &mtype, &delta, &value); err != nil {
-		return model.Metrics{}, err
+		return m, err
 	}
 
-	var m model.Metrics
 	if delta.Valid {
 		m = model.Metrics{
 			Name:  mname,
@@ -141,30 +186,40 @@ func (s *PostgreStorage) Get(ctx context.Context, name string) (model.Metrics, e
 			Value: &value.Float64,
 		}
 	} else {
-		return model.Metrics{}, ErrInvalidMetric
+		return m, ErrInvalidMetric
 	}
 	return m, nil
 }
 
 func (s *PostgreStorage) Create(ctx context.Context, m model.Metrics) (model.Metrics, error) {
-	_, err := s.db.ExecContext(ctx,
-		"INSERT INTO metrics (name, mtype, delta, value) VALUES($1,$2,$3,$4);",
-		m.Name, m.MType, m.Delta, m.Value,
-	)
+	var pgerr *pgconn.PgError
+	insert := "INSERT INTO metrics (name, mtype, delta, value) VALUES($1,$2,$3,$4);"
+
+	_, err := s.db.ExecContext(ctx, insert, m.Name, m.MType, m.Delta, m.Value)
 	if err != nil {
-		return model.Metrics{}, err
+		if errors.As(err, &pgerr) && pgerrcode.IsConnectionException(pgerr.Code) {
+			err = s.retryExecContext(ctx, insert, m.Name, m.MType, m.Delta, m.Value)
+		}
+		if err != nil {
+			return model.Metrics{}, err
+		}
 	}
 
 	return s.Get(ctx, m.Name)
 }
 
 func (s *PostgreStorage) Update(ctx context.Context, m model.Metrics) (model.Metrics, error) {
-	_, err := s.db.ExecContext(ctx,
-		"UPDATE metrics SET delta = metrics.delta + $1, value = $2 WHERE name = $3;",
-		m.Delta, m.Value, m.Name,
-	)
+	var pgerr *pgconn.PgError
+	update := "UPDATE metrics SET delta = metrics.delta + $1, value = $2 WHERE name = $3;"
+
+	_, err := s.db.ExecContext(ctx, update, m.Delta, m.Value, m.Name)
 	if err != nil {
-		return model.Metrics{}, err
+		if errors.As(err, &pgerr) && pgerrcode.IsConnectionException(pgerr.Code) {
+			err = s.retryExecContext(ctx, update, m.Delta, m.Value, m.Name)
+		}
+		if err != nil {
+			return model.Metrics{}, err
+		}
 	}
 
 	return s.Get(ctx, m.Name)
@@ -190,7 +245,14 @@ func (s *PostgreStorage) UpdateBatch(ctx context.Context, metrics []model.Metric
 
 	for _, m := range metrics {
 		if _, err := upsert.ExecContext(ctx, m.Name, m.MType, m.Delta, m.Value); err != nil {
-			return err
+			var pgerr *pgconn.PgError
+
+			if errors.As(err, &pgerr) && pgerrcode.IsConnectionException(pgerr.Code) {
+				err = s.retryExecPrepareContext(ctx, upsert, m.Name, m.MType, m.Delta, m.Value)
+			}
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -203,4 +265,65 @@ func (s *PostgreStorage) Ping(ctx context.Context) error {
 
 func (s *PostgreStorage) Close() error {
 	return s.db.Close()
+}
+
+func (s *PostgreStorage) retryExecContext(ctx context.Context, query string, args ...any) error {
+	attempts := 0
+	var err error
+	for i := 1; i < 5; i += 2 {
+		time.Sleep(time.Second * time.Duration(i))
+		if _, err = s.db.ExecContext(ctx, query, args); err == nil {
+			return nil
+		}
+		attempts++
+		s.l.Error("attempt failed", zap.Error(err), zap.Int("attempt #", attempts))
+	}
+	return err
+}
+
+func (s *PostgreStorage) retryQueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	var rows *sql.Rows
+	var err error
+
+	attempts := 0
+
+	for i := 1; i < 5; i += 2 {
+		time.Sleep(time.Second * time.Duration(i))
+		if rows, err = s.db.QueryContext(ctx, query, args); err == nil {
+			return rows, err
+		}
+		attempts++
+		s.l.Error("attempt failed", zap.Error(err), zap.Int("attempt #", attempts))
+	}
+	return rows, err
+}
+
+func (s *PostgreStorage) retryQueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	var row *sql.Row
+
+	attempts := 0
+
+	for i := 1; i < 5; i += 2 {
+		time.Sleep(time.Second * time.Duration(i))
+		if row = s.db.QueryRowContext(ctx, query, args); row.Err() == nil {
+			return row
+		}
+		attempts++
+		s.l.Error("attempt failed", zap.Error(row.Err()), zap.Int("attempt #", attempts))
+	}
+	return row
+}
+
+func (s *PostgreStorage) retryExecPrepareContext(ctx context.Context, stmt *sql.Stmt, args ...any) error {
+	attempts := 0
+	var err error
+	for i := 1; i < 5; i += 2 {
+		time.Sleep(time.Second * time.Duration(i))
+		if _, err = stmt.ExecContext(ctx, args); err == nil {
+			return nil
+		}
+		attempts++
+		s.l.Error("attempt failed", zap.Error(err), zap.Int("attempt #", attempts))
+	}
+	return err
 }
