@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/Xacor/go-metrics/internal/server/model"
@@ -41,35 +42,34 @@ func (mem *MemStorage) Get(ctx context.Context, name string) (model.Metrics, err
 
 	val, ok := mem.data[name]
 	if !ok {
-		return model.Metrics{}, errors.New("metric with this Name not found")
+		return model.Metrics{}, fmt.Errorf("%w: %s", ErrMetricNotFound, name)
 	}
 	return val, nil
 }
 
 func (mem *MemStorage) Create(ctx context.Context, metric model.Metrics) (model.Metrics, error) {
+	_, err := mem.Get(ctx, metric.Name)
+	if !errors.Is(err, ErrMetricNotFound) {
+		return model.Metrics{}, ErrMetricExists
+	}
+
 	mem.mu.Lock()
 	defer mem.mu.Unlock()
-
-	_, exist := mem.data[metric.Name]
-	if exist {
-		return model.Metrics{}, errors.New("metric with this Name already exists")
-	}
 
 	mem.data[metric.Name] = metric
 	return mem.data[metric.Name], nil
 }
 
 func (mem *MemStorage) Update(ctx context.Context, metric model.Metrics) (model.Metrics, error) {
+
+	obj, err := mem.Get(ctx, metric.Name)
+	if errors.Is(err, ErrMetricNotFound) {
+		return model.Metrics{}, err
+	}
+
 	mem.mu.Lock()
 	defer mem.mu.Unlock()
 
-	// получение существующего экземпляра
-	obj, exist := mem.data[metric.Name]
-	if !exist {
-		return model.Metrics{}, errors.New("metric doesnt exist")
-	}
-
-	// изменение в зависимости от типа
 	switch obj.MType {
 	case model.TypeCounter:
 		addDelta(metric.Delta, &obj)
@@ -78,7 +78,6 @@ func (mem *MemStorage) Update(ctx context.Context, metric model.Metrics) (model.
 		setValue(metric.Value, &obj)
 	}
 
-	// запись в мапу
 	mem.data[metric.Name] = obj
 
 	return mem.data[metric.Name], nil
@@ -89,11 +88,11 @@ func (mem *MemStorage) UpdateBatch(ctx context.Context, metrics []model.Metrics)
 		_, ok := mem.Get(ctx, m.Name)
 		if ok != nil {
 			if _, err := mem.Create(ctx, m); err != nil {
-				return err
+				return fmt.Errorf("%w: %v", ErrMetricNotCreated, m)
 			}
 		} else {
 			if _, err := mem.Update(ctx, m); err != nil {
-				return err
+				return fmt.Errorf("%w: %v", ErrMetricNotUpdated, m)
 			}
 		}
 	}

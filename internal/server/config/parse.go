@@ -2,6 +2,7 @@ package config
 
 import (
 	"flag"
+	"fmt"
 
 	"github.com/caarlos0/env/v6"
 )
@@ -19,7 +20,7 @@ func (c *Config) ParseFlags() {
 func (c *Config) ParseEnvs() error {
 	err := env.Parse(c)
 
-	return err
+	return fmt.Errorf("failed to parse envs: %w", err)
 }
 
 func (c *Config) ParseAll() error {

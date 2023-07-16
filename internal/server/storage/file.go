@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/Xacor/go-metrics/internal/server/model"
@@ -15,7 +16,7 @@ type FileStorage struct {
 func NewFileStorage(path string) (*FileStorage, error) {
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("file %s not open: %w", path, err)
 	}
 
 	return &FileStorage{file: f}, nil

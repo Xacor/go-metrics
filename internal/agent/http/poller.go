@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 	"reflect"
 	"time"
@@ -51,14 +51,17 @@ func (p *Poller) Run() {
 			p.metrics.Update()
 		}
 		if i%p.reportInterval == 0 {
-			if err := p.SendRequests(); err != nil {
-				p.logger.Error(err.Error())
+			if err := p.SendBatch(); err != nil {
+				p.logger.Error("failed to report metrics", zap.Error(err))
+				p.logger.Info("retrying to report metrics")
+				p.Retry(p.SendBatch)
 			}
+			p.metrics.PollCount = 0
 		}
 	}
 }
 
-func (p *Poller) SendRequests() error {
+func (p *Poller) SendBatch() error {
 	values := reflect.ValueOf(p.metrics).Elem()
 	types := values.Type()
 	var metrics []Metrics
@@ -91,9 +94,8 @@ func (p *Poller) SendRequests() error {
 				MType: TypeGauge,
 				Value: &v,
 			}
-
 		default:
-			p.logger.Info(fmt.Sprintf("unexpected kind: %v, value: %v", value.Kind(), value))
+			return errors.New("invalid metric kind")
 		}
 
 		metrics = append(metrics, metric)
@@ -131,15 +133,27 @@ func (p *Poller) Compress(data []byte) ([]byte, error) {
 	var b bytes.Buffer
 
 	w := gzip.NewWriter(&b)
-	_, err := w.Write(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed write data to compress temporary buffer: %v", err)
+	if _, err := w.Write(data); err != nil {
+		return nil, err
 	}
 
-	err = w.Close()
-	if err != nil {
-		return nil, fmt.Errorf("failed compress data: %v", err)
+	if err := w.Close(); err != nil {
+		return nil, err
 	}
 
 	return b.Bytes(), nil
+}
+
+func (p *Poller) Retry(fn func() error) {
+	var err error
+	attempts := 0
+	for i := 1; i < 5; i += 2 {
+		time.Sleep(time.Second * time.Duration(i))
+		if err = fn(); err == nil {
+			return
+		}
+		attempts++
+		p.logger.Error("attempt failed", zap.Error(err), zap.Int("attempt #", attempts))
+	}
+	return
 }

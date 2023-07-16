@@ -17,7 +17,7 @@ type PostgreStorage struct {
 
 func NewPostgreStorage(ctx context.Context, dsn string, logger *zap.Logger) (*PostgreStorage, error) {
 	if dsn == "" {
-		return nil, errors.New("empty data source")
+		return nil, ErrEmptyDSN
 	}
 	conn, err := sql.Open("pgx", dsn)
 	if err != nil {
@@ -29,20 +29,19 @@ func NewPostgreStorage(ctx context.Context, dsn string, logger *zap.Logger) (*Po
 	}
 
 	postgre := PostgreStorage{db: conn, l: logger}
-	if err := postgre.CreateTable(ctx); err != nil {
+	if err := postgre.Migrate(ctx); err != nil {
 		return nil, err
 	}
 
 	return &postgre, nil
 }
 
-func (s *PostgreStorage) CreateTable(ctx context.Context) error {
+func (s *PostgreStorage) Migrate(ctx context.Context) error {
 	createType := `CREATE TABLE IF NOT EXISTS metric_types (
         type VARCHAR(10) PRIMARY KEY
 	);`
-	_, err := s.db.ExecContext(ctx, createType)
-	if err != nil {
-		return err
+	if _, err := s.db.ExecContext(ctx, createType); err != nil {
+		return errors.Join(ErrMigrationFailed, err)
 	}
 
 	insertType := `INSERT INTO metric_types (type) VALUES 
@@ -50,10 +49,8 @@ func (s *PostgreStorage) CreateTable(ctx context.Context) error {
 		('gauge')
 		ON CONFLICT DO NOTHING
 		;`
-
-	_, err = s.db.ExecContext(ctx, insertType)
-	if err != nil {
-		return err
+	if _, err := s.db.ExecContext(ctx, insertType); err != nil {
+		return errors.Join(ErrMigrationFailed, err)
 	}
 
 	createMetrics := `CREATE TABLE IF NOT EXISTS metrics (
@@ -63,9 +60,11 @@ func (s *PostgreStorage) CreateTable(ctx context.Context) error {
         delta BIGINT CHECK ((delta IS NOT NULL AND mtype = 'counter') OR (delta IS NULL AND mtype = 'gauge')),
         value DOUBLE PRECISION CHECK ((value IS NOT NULL AND mtype = 'gauge') OR (value IS NULL AND mtype = 'counter'))
 	);`
-	_, err = s.db.ExecContext(ctx, createMetrics)
+	if _, err := s.db.ExecContext(ctx, createMetrics); err != nil {
+		return errors.Join(ErrMigrationFailed, err)
+	}
 
-	return err
+	return nil
 }
 
 func (s *PostgreStorage) All(ctx context.Context) ([]model.Metrics, error) {
@@ -103,7 +102,7 @@ func (s *PostgreStorage) All(ctx context.Context) ([]model.Metrics, error) {
 				Value: &value.Float64,
 			}
 		} else {
-			return metrics, errors.New("both delta and value columns are null")
+			return metrics, ErrInvalidMetric
 		}
 		metrics = append(metrics, m)
 	}
@@ -142,7 +141,7 @@ func (s *PostgreStorage) Get(ctx context.Context, name string) (model.Metrics, e
 			Value: &value.Float64,
 		}
 	} else {
-		return model.Metrics{}, errors.New("both delta and value columns are null")
+		return model.Metrics{}, ErrInvalidMetric
 	}
 	return m, nil
 }
@@ -190,8 +189,7 @@ func (s *PostgreStorage) UpdateBatch(ctx context.Context, metrics []model.Metric
 	defer upsert.Close()
 
 	for _, m := range metrics {
-		_, err := upsert.ExecContext(ctx, m.Name, m.MType, m.Delta, m.Value)
-		if err != nil {
+		if _, err := upsert.ExecContext(ctx, m.Name, m.MType, m.Delta, m.Value); err != nil {
 			return err
 		}
 	}
