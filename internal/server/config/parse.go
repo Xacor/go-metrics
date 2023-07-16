@@ -19,7 +19,7 @@ func (c *Config) ParseFlags() {
 
 func (c *Config) ParseEnvs() error {
 	if err := env.Parse(c); err != nil {
-		fmt.Errorf("failed to parse envs: %w", err)
+		return fmt.Errorf("failed to parse envs: %w", err)
 	}
 
 	return nil
