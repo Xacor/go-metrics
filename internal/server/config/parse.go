@@ -18,14 +18,16 @@ func (c *Config) ParseFlags() {
 }
 
 func (c *Config) ParseEnvs() error {
-	err := env.Parse(c)
+	if err := env.Parse(c); err != nil {
+		fmt.Errorf("failed to parse envs: %w", err)
+	}
 
-	return fmt.Errorf("failed to parse envs: %w", err)
+	return nil
 }
 
 func (c *Config) ParseAll() error {
 	c.ParseFlags()
 	err := c.ParseEnvs()
 
-	return err
+	return fmt.Errorf("%w", err)
 }
