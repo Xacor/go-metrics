@@ -5,19 +5,30 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/Xacor/go-metrics/internal/server/model"
+	"go.uber.org/zap"
 )
 
 type MemStorage struct {
-	data map[string]model.Metrics
-	mu   sync.RWMutex
+	data          map[string]model.Metrics
+	mu            sync.RWMutex
+	fs            *FileStorage
+	l             *zap.Logger
+	storeInterval int
 }
 
-func NewMemStorage() *MemStorage {
-	return &MemStorage{
-		data: make(map[string]model.Metrics),
+func NewMemStorage(backup *FileStorage, storeInterval int, logger *zap.Logger) *MemStorage {
+	mem := &MemStorage{
+		data:          make(map[string]model.Metrics),
+		storeInterval: storeInterval,
+		fs:            backup,
+		l:             logger,
 	}
+
+	go mem.store()
+	return mem
 }
 
 func (mem *MemStorage) Ping(ctx context.Context) error {
@@ -57,6 +68,11 @@ func (mem *MemStorage) Create(ctx context.Context, metric model.Metrics) (model.
 	defer mem.mu.Unlock()
 
 	mem.data[metric.Name] = metric
+
+	if err := mem.syncStore(); err != nil {
+		mem.l.Error("failed to syncStore", zap.Error(err))
+	}
+
 	return mem.data[metric.Name], nil
 }
 
@@ -80,6 +96,10 @@ func (mem *MemStorage) Update(ctx context.Context, metric model.Metrics) (model.
 
 	mem.data[metric.Name] = obj
 
+	if err := mem.syncStore(); err != nil {
+		mem.l.Error("failed to syncStore", zap.Error(err))
+	}
+
 	return mem.data[metric.Name], nil
 }
 
@@ -98,6 +118,36 @@ func (mem *MemStorage) UpdateBatch(ctx context.Context, metrics []model.Metrics)
 	}
 
 	return nil
+}
+
+func (mem *MemStorage) Close() error {
+	if err := mem.fs.Save(mem); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (mem *MemStorage) store() {
+	if mem.storeInterval <= 0 {
+		return
+	}
+
+	t := time.NewTicker(time.Duration(mem.storeInterval) * time.Second)
+	for range t.C {
+		mem.l.Debug("saving current state")
+		if err := mem.fs.Save(mem); err != nil {
+			mem.l.Error("failed to save data to file", zap.Error(err))
+		}
+	}
+}
+
+func (mem *MemStorage) syncStore() error {
+	if mem.storeInterval != 0 {
+		return nil
+	}
+
+	return mem.fs.Save(mem)
 }
 
 func addDelta(delta *int64, dst *model.Metrics) {

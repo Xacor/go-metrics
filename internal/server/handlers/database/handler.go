@@ -5,14 +5,14 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type DBHandler struct {
+type HealthService struct {
 	db storage.Pinger
 }
 
-func NewDBHandler(db storage.Pinger) *DBHandler {
-	return &DBHandler{db: db}
+func NewHealthService(db storage.Pinger) *HealthService {
+	return &HealthService{db: db}
 }
 
-func (h *DBHandler) RegisterRoutes(r *chi.Mux) {
+func (h *HealthService) RegisterRoutes(r *chi.Mux) {
 	r.Get("/ping", h.Ping)
 }

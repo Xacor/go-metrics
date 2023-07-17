@@ -4,7 +4,7 @@ import (
 	"net/http"
 )
 
-func (h *DBHandler) Ping(w http.ResponseWriter, r *http.Request) {
+func (h *HealthService) Ping(w http.ResponseWriter, r *http.Request) {
 	if err := h.db.Ping(r.Context()); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return

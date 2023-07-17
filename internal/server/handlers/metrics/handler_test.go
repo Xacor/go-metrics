@@ -8,7 +8,8 @@ import (
 	"testing"
 
 	"github.com/Xacor/go-metrics/internal/logger"
-	"github.com/Xacor/go-metrics/internal/server/storage"
+	"github.com/Xacor/go-metrics/internal/server/config"
+	"github.com/Xacor/go-metrics/internal/server/core/db"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,8 +35,14 @@ func TestAPI_UpdateRouter(t *testing.T) {
 	if err != nil {
 		log.Println(err)
 	}
+	l := logger.Get()
 
-	api := NewAPI(storage.NewMemStorage(), logger.Get())
+	cfg := config.Config{}
+	cfg.ParseFlags()
+
+	repo := db.InitDB(&cfg)
+
+	api := NewAPI(repo, l)
 
 	r := chi.NewRouter()
 	r.Post("/update/{metricType}/{metricID}/{metricValue}", api.UpdateHandler)
