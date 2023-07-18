@@ -1,4 +1,4 @@
-package handlers
+package metrics
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/Xacor/go-metrics/internal/server/model"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
 func (api *API) UpdateHandler(w http.ResponseWriter, r *http.Request) {
@@ -42,7 +43,7 @@ func (api *API) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		metric = model.Metrics{
-			ID:    metricID,
+			Name:  metricID,
 			MType: model.TypeCounter,
 			Delta: &v,
 		}
@@ -55,7 +56,7 @@ func (api *API) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		metric = model.Metrics{
-			ID:    metricID,
+			Name:  metricID,
 			MType: model.TypeGauge,
 			Value: &v,
 		}
@@ -66,15 +67,15 @@ func (api *API) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create if doesnt exist
-	if _, err := api.repo.Get(metricID); err != nil {
-		if _, err = api.repo.Create(metric); err != nil {
+	if _, err := api.repo.Get(r.Context(), metricID); err != nil {
+		if _, err = api.repo.Create(r.Context(), metric); err != nil {
 			api.logger.Error(err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 		return
 	}
 
-	if _, err := api.repo.Update(metric); err != nil {
+	if _, err := api.repo.Update(r.Context(), metric); err != nil {
 		api.logger.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -104,15 +105,15 @@ func (api *API) UpdateJSON(w http.ResponseWriter, r *http.Request) {
 
 	// проверка на существование метрики с таким ID
 	var result model.Metrics
-	if _, err := api.repo.Get(metric.ID); err != nil {
+	if _, err := api.repo.Get(r.Context(), metric.Name); err != nil {
 		// если нет, то создать
-		result, err = api.repo.Create(metric)
+		result, err = api.repo.Create(r.Context(), metric)
 		if err != nil {
 			api.logger.Error(err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 	} else {
-		result, err = api.repo.Update(metric)
+		result, err = api.repo.Update(r.Context(), metric)
 		if err != nil {
 			api.logger.Error(err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
@@ -129,4 +130,32 @@ func (api *API) UpdateJSON(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(json)
+}
+
+func (api *API) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Content-Type") != "application/json" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var metrics []model.Metrics
+	var buf bytes.Buffer
+
+	if _, err := buf.ReadFrom(r.Body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := json.Unmarshal(buf.Bytes(), &metrics); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := api.repo.UpdateBatch(r.Context(), metrics); err != nil {
+		api.logger.Error("error when updating batch", zap.Error(err), zap.Any("batch", metrics))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

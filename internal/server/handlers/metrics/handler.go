@@ -1,4 +1,4 @@
-package handlers
+package metrics
 
 import (
 	"github.com/Xacor/go-metrics/internal/server/storage"
@@ -7,11 +7,11 @@ import (
 )
 
 type API struct {
-	repo   storage.MetricRepo
+	repo   storage.Storage
 	logger *zap.Logger
 }
 
-func NewAPI(repo storage.MetricRepo, logger *zap.Logger) *API {
+func NewAPI(repo storage.Storage, logger *zap.Logger) *API {
 
 	return &API{repo: repo, logger: logger}
 }
@@ -28,4 +28,6 @@ func (api *API) RegisterRoutes(router *chi.Mux) {
 		r.Post("/", api.UpdateJSON)
 		r.Post("/{metricType}/{metricID}/{metricValue}", api.UpdateHandler)
 	})
+
+	router.Post("/updates/", api.UpdateMetrics)
 }

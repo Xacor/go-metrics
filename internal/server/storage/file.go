@@ -1,7 +1,9 @@
 package storage
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/Xacor/go-metrics/internal/server/model"
@@ -14,14 +16,14 @@ type FileStorage struct {
 func NewFileStorage(path string) (*FileStorage, error) {
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("file %s not open: %w", path, err)
 	}
 
 	return &FileStorage{file: f}, nil
 }
 
-func (fs *FileStorage) Save(repo MetricRepo) error {
-	data, err := repo.All()
+func (fs *FileStorage) Save(repo Storage) error {
+	data, err := repo.All(context.Background())
 	if err != nil {
 		return err
 	}
@@ -37,7 +39,7 @@ func (fs *FileStorage) Save(repo MetricRepo) error {
 	return nil
 }
 
-func (fs *FileStorage) Load(repo MetricRepo) error {
+func (fs *FileStorage) Load(repo Storage) error {
 
 	decoder := json.NewDecoder(fs.file)
 
@@ -48,7 +50,7 @@ func (fs *FileStorage) Load(repo MetricRepo) error {
 	}
 
 	for _, v := range m {
-		if _, err := repo.Create(v); err != nil {
+		if _, err := repo.Create(context.Background(), v); err != nil {
 			return err
 		}
 	}

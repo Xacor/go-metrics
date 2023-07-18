@@ -12,9 +12,10 @@ import (
 
 	"github.com/Xacor/go-metrics/internal/logger"
 	"github.com/Xacor/go-metrics/internal/server/config"
-	"github.com/Xacor/go-metrics/internal/server/handlers"
+	"github.com/Xacor/go-metrics/internal/server/core/db"
+	"github.com/Xacor/go-metrics/internal/server/handlers/database"
+	"github.com/Xacor/go-metrics/internal/server/handlers/metrics"
 	"github.com/Xacor/go-metrics/internal/server/middleware"
-	"github.com/Xacor/go-metrics/internal/server/storage"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
@@ -33,7 +34,9 @@ func main() {
 	if err := logger.Initialize(cfg.LogLevel); err != nil {
 		log.Fatalf("can't initialize zap logger: %v", err)
 	}
+
 	l := logger.Get()
+	defer l.Sync()
 
 	r := chi.NewRouter()
 	r.Use(middleware.WithLogging)
@@ -41,17 +44,14 @@ func main() {
 	r.Use(middleware.WithCompressWrite)
 	r.Use(chimiddleware.Recoverer)
 
-	ms := storage.NewMemStorage()
-	fs, err := storage.NewFileStorage(cfg.FileStoragePath)
+	repo := db.InitDB(&cfg)
+	defer repo.Close()
 
-	if cfg.Restore {
-		if err := fs.Load(ms); err != nil {
-			l.Error(err.Error())
-		}
-	}
+	metricsAPI := metrics.NewAPI(repo, l)
+	metricsAPI.RegisterRoutes(r)
 
-	api := handlers.NewAPI(ms, l)
-	api.RegisterRoutes(r)
+	databaseAPI := database.NewHealthService(repo)
+	databaseAPI.RegisterRoutes(r)
 
 	srv := http.Server{
 		Addr:    cfg.Address,
@@ -64,18 +64,6 @@ func main() {
 		if err != nil && err != http.ErrServerClosed {
 			l.Fatal(err.Error())
 		}
-
-	}()
-
-	go func() {
-		t := time.NewTicker(time.Duration(cfg.StoreInterval) * time.Second)
-		for range t.C {
-			l.Debug("saving current state")
-			err = fs.Save(ms)
-			if err != nil {
-				l.Error(err.Error())
-			}
-		}
 	}()
 
 	<-gracefullShutdown
@@ -84,15 +72,7 @@ func main() {
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	err = fs.Save(ms)
-	if err != nil {
-		l.Error(err.Error())
-	}
-
 	if err := srv.Shutdown(timeoutCtx); err != nil {
 		l.Error(err.Error())
 	}
-
-	defer l.Sync()
-
 }
