@@ -3,6 +3,8 @@ package http
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -17,6 +19,7 @@ type PollerConfig struct {
 	PollInterval   int
 	ReportInterval int
 	Address        string
+	Key            string
 	Metrics        *metric.Metrics
 	Client         *http.Client
 	Logger         *zap.Logger
@@ -26,6 +29,7 @@ type Poller struct {
 	pollInterval   int
 	reportInterval int
 	address        string
+	key            string
 	metrics        *metric.Metrics
 	client         *http.Client
 	logger         *zap.Logger
@@ -39,6 +43,7 @@ func NewPoller(cfg *PollerConfig) *Poller {
 		metrics:        cfg.Metrics,
 		client:         cfg.Client,
 		logger:         cfg.Logger,
+		key:            cfg.Key,
 	}
 }
 
@@ -112,10 +117,17 @@ func (p *Poller) SendBatch() error {
 	}
 
 	reader := bytes.NewReader(compressed)
-
 	request, err := http.NewRequest(http.MethodPost, p.address+"/updates/", reader)
 	if err != nil {
 		return err
+	}
+
+	if p.key != "" {
+		sign, err := p.Sign(json)
+		if err != nil {
+			return err
+		}
+		request.Header.Set("HashSHA256", string(sign))
 	}
 
 	request.Header.Set("Content-Encoding", "gzip")
@@ -127,6 +139,15 @@ func (p *Poller) SendBatch() error {
 	defer resp.Body.Close()
 
 	return nil
+}
+
+func (p *Poller) Sign(data []byte) ([]byte, error) {
+	h := hmac.New(sha256.New, []byte(p.key))
+	if _, err := h.Write(data); err != nil {
+		return nil, err
+	}
+
+	return h.Sum(nil), nil
 }
 
 func (p *Poller) Compress(data []byte) ([]byte, error) {

@@ -7,6 +7,7 @@ import (
 	"github.com/Xacor/go-metrics/internal/agent/config"
 	"github.com/Xacor/go-metrics/internal/agent/metric"
 	"github.com/Xacor/go-metrics/internal/logger"
+	"go.uber.org/zap"
 
 	poller "github.com/Xacor/go-metrics/internal/agent/http"
 )
@@ -22,11 +23,13 @@ func main() {
 		log.Fatalf("can't initialize zap logger: %v", err)
 	}
 	l := logger.Get()
+	l.Info("agent configuration", zap.Any("cfg", cfg))
 
 	pcfg := poller.PollerConfig{
 		PollInterval:   cfg.GetPollInterval(),
 		ReportInterval: cfg.GetReportInterval(),
 		Address:        cfg.GetURL(),
+		Key:            cfg.GetKey(),
 		Metrics:        metric.NewMetrics(),
 		Client:         &http.Client{},
 		Logger:         l,

@@ -7,6 +7,7 @@ import (
 type Config struct {
 	Address        string `env:"ADDRESS"`
 	LogLevel       string `env:"LOG_LEVEL"`
+	Key            string `env:"KEY"`
 	ReportInterval int    `env:"REPORT_INTERVAL"`
 	PollInterval   int    `env:"POLL_INTERVAL"`
 }
@@ -25,4 +26,8 @@ func (c *Config) GetPollInterval() int {
 
 func (c *Config) GetLogLevel() string {
 	return c.LogLevel
+}
+
+func (c *Config) GetKey() string {
+	return c.Key
 }
