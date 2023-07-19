@@ -17,7 +17,6 @@ import (
 	"github.com/Xacor/go-metrics/internal/server/handlers/metrics"
 	"github.com/Xacor/go-metrics/internal/server/middleware"
 	"github.com/go-chi/chi/v5"
-	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
 func main() {
@@ -39,10 +38,7 @@ func main() {
 	defer l.Sync()
 
 	r := chi.NewRouter()
-	r.Use(middleware.WithLogging)
-	r.Use(middleware.WithCompressRead)
-	r.Use(middleware.WithCompressWrite)
-	r.Use(chimiddleware.Recoverer)
+	middleware.RegisterMiddlewares(r, &cfg)
 
 	repo := db.InitDB(&cfg)
 	defer repo.Close()
