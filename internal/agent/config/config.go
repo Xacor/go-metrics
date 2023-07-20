@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 )
 
 type Config struct {
@@ -28,6 +29,10 @@ func (c *Config) GetLogLevel() string {
 	return c.LogLevel
 }
 
-func (c *Config) GetKey() string {
-	return c.Key
+func (c *Config) GetKey() (string, error) {
+	key, err := os.ReadFile(c.Key)
+	if err != nil {
+		return "", err
+	}
+	return string(key), nil
 }

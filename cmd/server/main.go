@@ -17,6 +17,7 @@ import (
 	"github.com/Xacor/go-metrics/internal/server/handlers/metrics"
 	"github.com/Xacor/go-metrics/internal/server/middleware"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -54,7 +55,7 @@ func main() {
 		Handler: r,
 	}
 
-	l.Info(fmt.Sprintf("starting serving on %s", cfg.Address))
+	l.Info(fmt.Sprintf("starting serving on %s", cfg.Address), zap.Any("server configuration", cfg))
 	go func() {
 		srv.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {

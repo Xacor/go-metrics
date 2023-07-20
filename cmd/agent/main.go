@@ -25,11 +25,16 @@ func main() {
 	l := logger.Get()
 	l.Info("agent configuration", zap.Any("cfg", cfg))
 
+	key, err := cfg.GetKey()
+	if err != nil {
+		l.Error("failed to get key", zap.Error(err))
+	}
+
 	pcfg := poller.PollerConfig{
 		PollInterval:   cfg.GetPollInterval(),
 		ReportInterval: cfg.GetReportInterval(),
 		Address:        cfg.GetURL(),
-		Key:            cfg.GetKey(),
+		Key:            key,
 		Metrics:        metric.NewMetrics(),
 		Client:         &http.Client{},
 		Logger:         l,
