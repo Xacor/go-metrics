@@ -13,6 +13,7 @@ func (c *Config) ParseFlags() {
 	flag.StringVar(&c.Key, "k", "", "signature key")
 	flag.IntVar(&c.ReportInterval, "r", 10, "report interval in seconds")
 	flag.IntVar(&c.PollInterval, "p", 2, "poll interval in seconds")
+	flag.IntVar(&c.RateLimit, "l", 1, "rate limit")
 	flag.Parse()
 }
 

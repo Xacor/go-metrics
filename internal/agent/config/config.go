@@ -11,6 +11,7 @@ type Config struct {
 	Key            string `env:"KEY"`
 	ReportInterval int    `env:"REPORT_INTERVAL"`
 	PollInterval   int    `env:"POLL_INTERVAL"`
+	RateLimit      int    `env:"RATE_LIMIT"`
 }
 
 func (c *Config) GetURL() string {
@@ -35,4 +36,8 @@ func (c *Config) GetKey() (string, error) {
 		return "", err
 	}
 	return string(key), nil
+}
+
+func (c *Config) GetRateLimit() int {
+	return c.RateLimit
 }
