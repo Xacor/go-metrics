@@ -2,13 +2,7 @@ package http
 
 import (
 	"bytes"
-	"compress/gzip"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/json"
-	"errors"
 	"net/http"
-	"reflect"
 	"time"
 
 	"github.com/Xacor/go-metrics/internal/agent/metric"
@@ -16,102 +10,73 @@ import (
 )
 
 type PollerConfig struct {
-	PollInterval   int
 	ReportInterval int
+	RateLimit      int
 	Address        string
 	Key            string
-	Metrics        *metric.Metrics
+	MetricCh       <-chan metric.UpdateResult
 	Client         *http.Client
 	Logger         *zap.Logger
 }
 
 type Poller struct {
-	pollInterval   int
 	reportInterval int
+	rateLimit      int
 	address        string
 	key            string
-	metrics        *metric.Metrics
+	metricCh       <-chan metric.UpdateResult
 	client         *http.Client
 	logger         *zap.Logger
 }
 
 func NewPoller(cfg *PollerConfig) *Poller {
 	return &Poller{
-		pollInterval:   cfg.PollInterval,
 		reportInterval: cfg.ReportInterval,
 		address:        cfg.Address,
-		metrics:        cfg.Metrics,
+		metricCh:       cfg.MetricCh,
 		client:         cfg.Client,
 		logger:         cfg.Logger,
 		key:            cfg.Key,
+		rateLimit:      cfg.RateLimit,
 	}
 }
 
 func (p *Poller) Run() {
 	p.logger.Info("poller started")
-	for i := 0; ; i++ {
-		time.Sleep(time.Second * 1)
-		if i%p.pollInterval == 0 {
-			p.logger.Info("updating metric values")
-			p.metrics.Update()
-		}
-		if i%p.reportInterval == 0 {
-			if err := p.SendBatch(); err != nil {
-				p.logger.Error("failed to report metrics", zap.Error(err))
-				p.logger.Info("retrying to report metrics")
-				p.retry(p.SendBatch)
+	semaphore := NewSemaphore(p.rateLimit)
+
+	t := time.NewTicker(time.Second * time.Duration(p.reportInterval))
+	for {
+		select {
+		case <-t.C:
+			res := <-p.metricCh
+			if res.Err != nil {
+				p.logger.Error("failed to read from UpdateResult", zap.Error(res.Err))
+				continue
 			}
-			p.metrics.PollCount = 0
+
+			go func(m metric.Metrics) {
+				semaphore.Acquire()
+				defer semaphore.Release()
+
+				err := p.Send(m)
+				if err != nil {
+					p.retry(p.Send, m)
+				}
+			}(res.Metrtics)
+
+		case <-p.metricCh:
 		}
 	}
 }
 
-func (p *Poller) SendBatch() error {
-	values := reflect.ValueOf(p.metrics).Elem()
-	types := values.Type()
-	var metrics []Metrics
-
-	for i := 0; i < values.NumField(); i++ {
-		field := types.Field(i)
-		value := values.Field(i)
-
-		var metric Metrics
-
-		switch value.Kind() {
-		case reflect.Uint64:
-			v := int64(value.Uint())
-			metric = Metrics{
-				ID:    field.Name,
-				MType: TypeCounter,
-				Delta: &v,
-			}
-		case reflect.Int64:
-			v := value.Int()
-			metric = Metrics{
-				ID:    field.Name,
-				MType: TypeCounter,
-				Delta: &v,
-			}
-		case reflect.Float64:
-			v := value.Float()
-			metric = Metrics{
-				ID:    field.Name,
-				MType: TypeGauge,
-				Value: &v,
-			}
-		default:
-			return errors.New("invalid metric kind")
-		}
-
-		metrics = append(metrics, metric)
-	}
-
-	json, err := json.Marshal(metrics)
+func (p *Poller) Send(m metric.Metrics) error {
+	json, err := m.MarshalJSON()
 	if err != nil {
 		return err
 	}
 
-	compressed, err := p.Compress(json)
+	compressed, err := Compress(json)
 	if err != nil {
 		return err
 	}
@@ -123,7 +88,7 @@ func (p *Poller) SendBatch() error {
 	}
 
 	if p.key != "" {
-		sign, err := p.Sign(json)
+		sign, err := Sign(json, p.key)
 		if err != nil {
 			return err
 		}
@@ -141,36 +106,12 @@ func (p *Poller) SendBatch() error {
 	return nil
 }
 
-func (p *Poller) Sign(data []byte) ([]byte, error) {
-	h := hmac.New(sha256.New, []byte(p.key))
-	if _, err := h.Write(data); err != nil {
-		return nil, err
-	}
-
-	return h.Sum(nil), nil
-}
-
-func (p *Poller) Compress(data []byte) ([]byte, error) {
-	var b bytes.Buffer
-
-	w := gzip.NewWriter(&b)
-	if _, err := w.Write(data); err != nil {
-		return nil, err
-	}
-
-	if err := w.Close(); err != nil {
-		return nil, err
-	}
-
-	return b.Bytes(), nil
-}
-
-func (p *Poller) retry(fn func() error) {
+func (p *Poller) retry(fn func(metric.Metrics) error, arg metric.Metrics) {
 	attempts := 0
 	var err error
 	for i := 1; i < 5; i += 2 {
 		time.Sleep(time.Second * time.Duration(i))
-		if err = fn(); err == nil {
+		if err = fn(arg); err == nil {
 			return
 		}
 		attempts++

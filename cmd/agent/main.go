@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/Xacor/go-metrics/internal/agent/config"
 	"github.com/Xacor/go-metrics/internal/agent/metric"
@@ -30,12 +31,17 @@ func main() {
 		l.Error("failed to get key", zap.Error(err))
 	}
 
+	monitor, err := metric.NewMonitor(time.Duration(cfg.GetPollInterval()) * time.Second)
+	if err != nil {
+		l.Error("failed to create monitor", zap.Error(err))
+	}
+
 	pcfg := poller.PollerConfig{
-		PollInterval:   cfg.GetPollInterval(),
 		ReportInterval: cfg.GetReportInterval(),
+		RateLimit:      cfg.GetRateLimit(),
 		Address:        cfg.GetURL(),
 		Key:            key,
-		Metrics:        metric.NewMetrics(),
+		MetricCh:       monitor.C,
 		Client:         &http.Client{},
 		Logger:         l,
 	}
