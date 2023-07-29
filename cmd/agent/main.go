@@ -35,6 +35,7 @@ func main() {
 	if err != nil {
 		l.Error("failed to create monitor", zap.Error(err))
 	}
+	defer monitor.Close()
 
 	pcfg := poller.PollerConfig{
 		ReportInterval: cfg.GetReportInterval(),

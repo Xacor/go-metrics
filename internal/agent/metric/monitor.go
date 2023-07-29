@@ -36,6 +36,10 @@ func NewMonitor(d time.Duration) (*Monitor, error) {
 	return monitor, nil
 }
 
+func (m *Monitor) Close() {
+	close(m.C)
+}
+
 // вспомогательная функция, чтобы слать метрки в канал без блокировки
 func sendResult(c any, val UpdateResult) {
 	select {
