@@ -44,7 +44,7 @@ func readStruct(st interface{}) ([]jsonMetric, error) {
 			}
 		case reflect.Slice:
 			for j := 0; j < f.Len(); j++ {
-				v := f.Index(i).Float()
+				v := f.Index(j).Float()
 				result = append(result, jsonMetric{
 					ID:    fmt.Sprintf("%v%v", val.Type().Field(i).Name, j+1),
 					MType: typeGauge,
