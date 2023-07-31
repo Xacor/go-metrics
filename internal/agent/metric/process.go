@@ -5,25 +5,25 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
-type Proccess struct {
+type Process struct {
 	TotalMemory    Gauge
 	FreeMemory     Gauge
 	CPUutilization []Gauge
 }
 
-func NewProcess() (*Proccess, error) {
+func NewProcess() (*Process, error) {
 	cores, err := cpu.Counts(true)
 	if err != nil {
 		return nil, err
 	}
-	return &Proccess{
+	return &Process{
 		TotalMemory:    0,
 		FreeMemory:     0,
 		CPUutilization: make([]Gauge, cores),
 	}, nil
 }
 
-func (p *Proccess) Update() error {
+func (p *Process) Update() error {
 	v, err := mem.VirtualMemory()
 	if err != nil {
 		return err

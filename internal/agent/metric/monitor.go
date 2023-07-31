@@ -41,9 +41,9 @@ func (m *Monitor) Close() {
 }
 
 // вспомогательная функция, чтобы слать метрки в канал без блокировки
-func sendResult(c any, val UpdateResult) {
+func sendResult(c chan UpdateResult, val UpdateResult) {
 	select {
-	case c.(chan UpdateResult) <- val:
+	case c <- val:
 	default:
 	}
 }
