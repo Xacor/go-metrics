@@ -36,8 +36,8 @@ func (mem *MemStorage) Ping(ctx context.Context) error {
 }
 
 func (mem *MemStorage) All(ctx context.Context) ([]model.Metrics, error) {
-	mem.mu.Lock()
-	defer mem.mu.Unlock()
+	mem.mu.RLock()
+	defer mem.mu.RUnlock()
 
 	result := make([]model.Metrics, 0, len(mem.data))
 	for _, v := range mem.data {
@@ -48,8 +48,8 @@ func (mem *MemStorage) All(ctx context.Context) ([]model.Metrics, error) {
 }
 
 func (mem *MemStorage) Get(ctx context.Context, name string) (model.Metrics, error) {
-	mem.mu.Lock()
-	defer mem.mu.Unlock()
+	mem.mu.RLock()
+	defer mem.mu.RUnlock()
 
 	val, ok := mem.data[name]
 	if !ok {

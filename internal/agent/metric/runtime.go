@@ -1,16 +1,12 @@
 package metric
 
 import (
-	"math/rand"
+	"errors"
 	"reflect"
-	"runtime"
+	runt "runtime"
 )
 
-type Gauge float64
-
-type Counter int64
-
-type Metrics struct {
+type Runtime struct {
 	Alloc         Gauge
 	BuckHashSys   Gauge
 	Frees         Gauge
@@ -38,31 +34,26 @@ type Metrics struct {
 	StackSys      Gauge
 	Sys           Gauge
 	TotalAlloc    Gauge
-	PollCount     Counter
-	RandomValue   Gauge
 }
 
-// Returns up to date Metrics.
-func NewMetrics() *Metrics {
-	return &Metrics{}
+func NewRuntime() *Runtime {
+	return &Runtime{}
 }
 
-// Updates Metrics with up to date values.
-func (m *Metrics) Update() {
-	var runTime runtime.MemStats
-	runtime.ReadMemStats(&runTime)
+func (r *Runtime) Update() error {
+	var runTime runt.MemStats
+	runt.ReadMemStats(&runTime)
 
-	values := reflect.ValueOf(m).Elem()
+	values := reflect.ValueOf(r).Elem()
 	types := values.Type()
 	runTimeValues := reflect.ValueOf(runTime)
 
-	// parse MemStats to Metrics
 	for i := 0; i < values.NumField(); i++ {
 		field := types.Field(i)
 		runTimeField := runTimeValues.FieldByName(field.Name)
 
 		var v float64
-		switch runTimeField.Kind() { //nolint:exhaustive // default case present
+		switch runTimeField.Kind() {
 		case reflect.Float64:
 			v = runTimeField.Float()
 
@@ -70,12 +61,10 @@ func (m *Metrics) Update() {
 			v = float64(runTimeField.Uint())
 
 		default:
-			continue
+			return errors.New("invalid metric type")
 		}
 
 		values.Field(i).SetFloat(v)
 	}
-
-	m.PollCount++
-	m.RandomValue = Gauge(rand.Float64()) //nolint:gosec // its ok to use weak random algorythm here
+	return nil
 }
