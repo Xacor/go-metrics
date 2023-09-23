@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"bytes"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -135,5 +136,79 @@ func BenchmarkAPI_MetricsHandler(b *testing.B) {
 			}
 		})
 
+	}
+}
+
+func BenchmarkAPI_MetricJSON(b *testing.B) {
+	type fields struct {
+		storage *mock_storage.MockStorage
+	}
+	type want struct {
+		code int
+	}
+	benchmarks := []struct {
+		name    string
+		body    []byte
+		want    want
+		prepare func(f *fields)
+	}{
+		{
+			name: "benchmark",
+			body: []byte(`{
+    "id": "name1",
+    "type": "counter",
+    "delta": 1
+}`),
+			want: want{
+				code: http.StatusOK,
+			},
+			prepare: func(f *fields) {
+				var val int64 = 1
+				f.storage.EXPECT().Get(gomock.Any(), "name1").Return(model.Metrics{
+					Name:  "name1",
+					MType: model.TypeCounter,
+					Delta: &val,
+					Value: nil,
+				},
+					nil)
+			},
+		},
+	}
+
+	l := logger.Get()
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				ctrl := gomock.NewController(b)
+				defer ctrl.Finish()
+
+				f := fields{
+					storage: mock_storage.NewMockStorage(ctrl),
+				}
+
+				api := &API{
+					repo:   f.storage,
+					logger: l,
+				}
+
+				r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(bm.body))
+				r.Header.Set("Content-Type", "application/json")
+				w := httptest.NewRecorder()
+
+				if bm.prepare != nil {
+					bm.prepare(&f)
+				}
+				b.StartTimer()
+
+				api.MetricJSON(w, r)
+
+				assert.Equal(b, bm.want.code, w.Result().StatusCode)
+
+				b.StopTimer()
+				w.Result().Body.Close()
+				b.StartTimer()
+			}
+		})
 	}
 }
