@@ -154,11 +154,7 @@ func BenchmarkAPI_MetricJSON(b *testing.B) {
 	}{
 		{
 			name: "benchmark",
-			body: []byte(`{
-    "id": "name1",
-    "type": "counter",
-    "delta": 1
-}`),
+			body: []byte(`{"id": "name1","type": "counter","delta": 1}`),
 			want: want{
 				code: http.StatusOK,
 			},
@@ -209,6 +205,88 @@ func BenchmarkAPI_MetricJSON(b *testing.B) {
 				w.Result().Body.Close()
 				b.StartTimer()
 			}
+		})
+	}
+}
+
+func TestAPI_MetricJSON(t *testing.T) {
+	type fields struct {
+		storage *mock_storage.MockStorage
+	}
+	type want struct {
+		code int
+	}
+	tests := []struct {
+		name    string
+		body    []byte
+		want    want
+		prepare func(f *fields)
+	}{
+		{
+			name: "positive",
+			body: []byte(`{"id": "name1","type": "counter","delta": 1}`),
+			want: want{
+				code: http.StatusOK,
+			},
+			prepare: func(f *fields) {
+				var val int64 = 1
+				f.storage.EXPECT().Get(gomock.Any(), "name1").Return(model.Metrics{
+					Name:  "name1",
+					MType: model.TypeCounter,
+					Delta: &val,
+					Value: nil,
+				},
+					nil)
+			},
+		},
+		{
+			name: "db_error",
+			body: []byte(`{"id": "name1","type": "counter","delta": 1}`),
+			want: want{
+				code: http.StatusNotFound,
+			},
+			prepare: func(f *fields) {
+				f.storage.EXPECT().Get(gomock.Any(), "name1").Return(model.Metrics{}, errors.New("db error"))
+			},
+		},
+		{
+			name: "invalid_body",
+			body: []byte(`{"id": "name1","type": "counter","delta": 1`),
+			want: want{
+				code: http.StatusBadRequest,
+			},
+			prepare: nil,
+		},
+	}
+
+	l := logger.Get()
+	for _, bm := range tests {
+		t.Run(bm.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			f := fields{
+				storage: mock_storage.NewMockStorage(ctrl),
+			}
+
+			api := &API{
+				repo:   f.storage,
+				logger: l,
+			}
+
+			r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(bm.body))
+			r.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			if bm.prepare != nil {
+				bm.prepare(&f)
+			}
+
+			api.MetricJSON(w, r)
+
+			assert.Equal(t, bm.want.code, w.Result().StatusCode)
+			w.Result().Body.Close()
+
 		})
 	}
 }
