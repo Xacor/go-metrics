@@ -130,8 +130,9 @@ func BenchmarkAPI_MetricsHandler(b *testing.B) {
 				api.MetricsHandler(w, r)
 
 				b.StopTimer()
-				w.Result().Body.Close()
-				assert.Equal(b, bm.want.code, w.Result().StatusCode)
+				resp := w.Result()
+				resp.Body.Close()
+				assert.Equal(b, bm.want.code, resp.StatusCode)
 				b.StartTimer()
 			}
 		})
@@ -199,7 +200,8 @@ func BenchmarkAPI_MetricJSON(b *testing.B) {
 				api.MetricJSON(w, r)
 
 				b.StopTimer()
-				w.Result().Body.Close()
+				resp := w.Result()
+				resp.Body.Close()
 				b.StartTimer()
 
 			}
@@ -281,8 +283,9 @@ func TestAPI_MetricJSON(t *testing.T) {
 			}
 
 			api.MetricJSON(w, r)
-			w.Result().Body.Close()
-			assert.Equal(t, bm.want.code, w.Result().StatusCode)
+			resp := w.Result()
+			defer resp.Body.Close()
+			assert.Equal(t, bm.want.code, resp.StatusCode)
 		})
 	}
 }

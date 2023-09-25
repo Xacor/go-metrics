@@ -64,8 +64,9 @@ func TestHealthService_Ping(t *testing.T) {
 			}
 
 			api.Ping(w, r)
-			w.Result().Body.Close()
-			assert.Equal(t, tt.want.code, w.Result().StatusCode)
+			resp := w.Result()
+			defer resp.Body.Close()
+			assert.Equal(t, tt.want.code, resp.StatusCode)
 		})
 	}
 }
