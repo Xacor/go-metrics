@@ -99,10 +99,9 @@ func TestAPI_UpdateJSON(t *testing.T) {
 			}
 
 			api.UpdateJSON(w, r)
-
-			assert.Equal(t, bm.want.code, w.Result().StatusCode)
-			w.Result().Body.Close()
-
+			resp := w.Result()
+			resp.Body.Close()
+			assert.Equal(t, bm.want.code, resp.StatusCode)
 		})
 	}
 }
@@ -188,9 +187,9 @@ func TestAPI_UpdateMetrics(t *testing.T) {
 			}
 
 			api.UpdateMetrics(w, r)
-
-			w.Result().Body.Close()
-			assert.Equal(t, tt.want.code, w.Result().StatusCode)
+			resp := w.Result()
+			resp.Body.Close()
+			assert.Equal(t, tt.want.code, resp.StatusCode)
 		})
 	}
 }
