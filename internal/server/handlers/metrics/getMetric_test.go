@@ -12,6 +12,7 @@ import (
 	"github.com/Xacor/go-metrics/internal/server/model"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func TestAPI_MetricsHandler(t *testing.T) {
@@ -111,12 +112,9 @@ func BenchmarkAPI_MetricsHandler(b *testing.B) {
 	var val int64 = 1
 	m.EXPECT().All(gomock.Any()).Return([]model.Metrics{{"counter1", model.TypeCounter, &val, nil}}, nil).AnyTimes()
 
-	logger.Initialize("DEBUG")
-	l := logger.Get()
-
 	api := &API{
 		repo:   m,
-		logger: l,
+		logger: zap.NewNop(),
 	}
 
 	b.ResetTimer()
@@ -171,7 +169,6 @@ func BenchmarkAPI_MetricJSON(b *testing.B) {
 		},
 	}
 
-	l := logger.Get()
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
@@ -185,7 +182,7 @@ func BenchmarkAPI_MetricJSON(b *testing.B) {
 
 				api := &API{
 					repo:   f.storage,
-					logger: l,
+					logger: zap.NewNop(),
 				}
 
 				r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(bm.body))

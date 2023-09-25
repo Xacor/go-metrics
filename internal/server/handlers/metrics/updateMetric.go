@@ -139,14 +139,10 @@ func (api *API) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var metrics []model.Metrics
-	var buf bytes.Buffer
 
-	if _, err := buf.ReadFrom(r.Body); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if err := json.Unmarshal(buf.Bytes(), &metrics); err != nil {
+	err := json.NewDecoder(r.Body).Decode(&metrics)
+	if err != nil {
+		api.logger.Error("error decoding", zap.Error(err))
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

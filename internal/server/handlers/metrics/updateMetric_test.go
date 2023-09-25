@@ -12,6 +12,7 @@ import (
 	"github.com/Xacor/go-metrics/internal/server/model"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func TestAPI_UpdateJSON(t *testing.T) {
@@ -191,6 +192,89 @@ func TestAPI_UpdateMetrics(t *testing.T) {
 			assert.Equal(t, tt.want.code, w.Result().StatusCode)
 			w.Result().Body.Close()
 
+		})
+	}
+}
+
+func BenchmarkAPI_UpdateMetrics(b *testing.B) {
+	type fields struct {
+		storage *mock_storage.MockStorage
+	}
+	type want struct {
+		code int
+	}
+	benchmarks := []struct {
+		name    string
+		body    []byte
+		want    want
+		prepare func(f *fields)
+	}{
+		{
+			name: "new_metric",
+			body: []byte(`[{"id": "name1","type": "counter","delta": 1}, {"id": "name2","type": "gauge","value": 2.0}]`),
+			want: want{
+				code: http.StatusOK,
+			},
+			prepare: func(f *fields) {
+				f.storage.EXPECT().UpdateBatch(gomock.Any(), gomock.Any()).Return(nil)
+			},
+		},
+		{
+			name: "invalid_body",
+			body: []byte(`{"id": "name1","type": "counter","delta": 1`),
+			want: want{
+				code: http.StatusBadRequest,
+			},
+			prepare: nil,
+		},
+		{
+			name: "db_error",
+			body: []byte(`[{"id": "name1","type": "counter","delta": 1}]`),
+			want: want{
+				code: http.StatusInternalServerError,
+			},
+			prepare: func(f *fields) {
+				var val int64 = 1
+				metrics := []model.Metrics{{
+					Name:  "name1",
+					MType: model.TypeCounter,
+					Delta: &val,
+					Value: nil,
+				}}
+				f.storage.EXPECT().UpdateBatch(gomock.Any(), metrics).Return(errors.New("db error"))
+			},
+		},
+	}
+
+	b.ResetTimer()
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				ctrl := gomock.NewController(b)
+				defer ctrl.Finish()
+
+				f := fields{
+					storage: mock_storage.NewMockStorage(ctrl),
+				}
+
+				api := &API{
+					repo:   f.storage,
+					logger: zap.NewNop(),
+				}
+
+				r := httptest.NewRequest(http.MethodPost, "/updates/", bytes.NewReader(bm.body))
+				r.Header.Set("Content-Type", "application/json")
+				w := httptest.NewRecorder()
+
+				if bm.prepare != nil {
+					bm.prepare(&f)
+				}
+				b.StartTimer()
+				api.UpdateMetrics(w, r)
+
+				w.Result().Body.Close()
+			}
 		})
 	}
 }
