@@ -189,9 +189,8 @@ func TestAPI_UpdateMetrics(t *testing.T) {
 
 			api.UpdateMetrics(w, r)
 
-			assert.Equal(t, tt.want.code, w.Result().StatusCode)
 			w.Result().Body.Close()
-
+			assert.Equal(t, tt.want.code, w.Result().StatusCode)
 		})
 	}
 }
