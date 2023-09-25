@@ -81,8 +81,9 @@ func TestAPI_MetricsHandler(t *testing.T) {
 			}
 
 			api.MetricsHandler(w, r)
-			w.Result().Body.Close()
-			assert.Equal(t, tt.want.code, w.Result().StatusCode)
+			resp := w.Result()
+			defer resp.Body.Close()
+			assert.Equal(t, tt.want.code, resp.StatusCode)
 		})
 	}
 }
@@ -110,7 +111,7 @@ func BenchmarkAPI_MetricsHandler(b *testing.B) {
 
 	m := mock_storage.NewMockStorage(ctrl)
 	var val int64 = 1
-	m.EXPECT().All(gomock.Any()).Return([]model.Metrics{{"counter1", model.TypeCounter, &val, nil}}, nil).AnyTimes()
+	m.EXPECT().All(gomock.Any()).Return([]model.Metrics{{Name: "counter1", MType: model.TypeCounter, Delta: &val, Value: nil}}, nil).AnyTimes()
 
 	api := &API{
 		repo:   m,
