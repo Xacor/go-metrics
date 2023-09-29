@@ -148,7 +148,7 @@ func ExampleAPI_UpdateMetrics() {
 	defer resp.Body.Close()
 
 	// Вывод: "200 OK"
-	fmt.Println(w.Result().Status)
+	fmt.Println(resp.Status)
 }
 
 func TestAPI_UpdateMetrics(t *testing.T) {
