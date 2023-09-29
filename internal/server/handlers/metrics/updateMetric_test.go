@@ -3,6 +3,7 @@ package metrics
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -104,6 +105,50 @@ func TestAPI_UpdateJSON(t *testing.T) {
 			assert.Equal(t, bm.want.code, resp.StatusCode)
 		})
 	}
+}
+
+func ExampleAPI_UpdateMetrics() {
+	// Инициализируем логер
+	logger.Initialize("debug")
+	l := logger.Get()
+
+	// Подготавливаем хранилище
+	ctrl := gomock.NewController(l.Sugar())
+	defer ctrl.Finish()
+	storage := mock_storage.NewMockStorage(ctrl)
+
+	// Инициализируем объект API
+	api := NewAPI(storage, l)
+
+	// Подготавливаем запрос
+	body := []byte(`
+	[
+		{
+			"id": "name1",
+			"type": "counter",
+			"delta": 1
+		}, 
+		{
+			"id": "name2",
+			"type": "gauge",
+			"value": 2.0
+		}
+	]
+	`)
+	r := httptest.NewRequest(http.MethodPost, "/updates/", bytes.NewReader(body))
+	r.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+
+	// Вызываем хэндлер
+	api.UpdateMetrics(w, r)
+
+	// Получаем ответ
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	// Вывод: "200 OK"
+	fmt.Println(w.Result().Status)
 }
 
 func TestAPI_UpdateMetrics(t *testing.T) {

@@ -10,6 +10,9 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// Получение значения метрики по URL параметрам.
+//
+// GET: ./value/{metricType}/{metricID}
 func (api *API) MetricHandler(w http.ResponseWriter, r *http.Request) {
 	var metricType, metricID string
 	if metricID = chi.URLParam(r, "metricID"); metricID == "" {
@@ -39,6 +42,9 @@ func (api *API) MetricHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(valStr))
 }
 
+// Получение значений всех метрик в text/plain
+//
+// GET: /
 func (api *API) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	data, err := api.repo.All(r.Context())
 	if err != nil {
@@ -57,6 +63,9 @@ func (api *API) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
+// Получение значения метрики из тела json
+//
+// POST: /
 func (api *API) MetricJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Content-Type") != "application/json" {
 		w.WriteHeader(http.StatusBadRequest)

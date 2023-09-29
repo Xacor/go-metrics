@@ -11,6 +11,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// Хэндлер обновляет указанную метрику с параметрами из URL
+//
+// POST: /update/{metricType}/{metricID}/{metricValue}
 func (api *API) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 	var metricType, metricID, metricValue string
 	if metricType = chi.URLParam(r, "metricType"); metricType == "" {
@@ -84,6 +87,9 @@ func (api *API) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// Хэндлер обновляет указанную метрику с параметрами из тела в JSON
+//
+// POST: /update/
 func (api *API) UpdateJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Content-Type") != "application/json" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -132,6 +138,9 @@ func (api *API) UpdateJSON(w http.ResponseWriter, r *http.Request) {
 	w.Write(json)
 }
 
+// Хэндлер обновляет массив метрик из тела в JSON
+//
+// POST: /updates/
 func (api *API) UpdateMetrics(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Content-Type") != "application/json" {
 		w.WriteHeader(http.StatusBadRequest)

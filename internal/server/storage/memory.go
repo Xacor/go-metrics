@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Реализует интерфейс Storage для in-memory хранилища.
 type MemStorage struct {
 	data          map[string]model.Metrics
 	mu            sync.RWMutex
