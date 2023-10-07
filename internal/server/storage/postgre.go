@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Реализиует интерфейс Storage для взаимодействия с PostgreSQL
 type PostgreStorage struct {
 	db *pgxpool.Pool
 	l  *zap.Logger

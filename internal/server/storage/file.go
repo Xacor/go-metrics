@@ -9,6 +9,7 @@ import (
 	"github.com/Xacor/go-metrics/internal/server/model"
 )
 
+// Реализует логику для сохранения и загрузки метрик из файла.
 type FileStorage struct {
 	file *os.File
 }
