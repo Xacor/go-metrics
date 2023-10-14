@@ -3,10 +3,11 @@ module github.com/Xacor/go-metrics
 go 1.20
 
 require (
+	github.com/fatih/errwrap v1.5.0
 	github.com/go-chi/chi/v5 v5.0.8
 	github.com/go-playground/assert/v2 v2.2.0
 	github.com/golang/mock v1.6.0
-	github.com/securego/gosec/v2 v2.18.0
+	github.com/masibw/goone v1.4.1
 	github.com/shirou/gopsutil/v3 v3.23.6
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/tools v0.14.0
@@ -14,19 +15,16 @@ require (
 )
 
 require (
-	github.com/fatih/errwrap v1.5.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/gostaticanalysis/analysisutil v0.6.1 // indirect
 	github.com/gostaticanalysis/comment v1.4.1 // indirect
 	github.com/kr/text v0.1.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
-	github.com/masibw/goone v1.4.1 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.0 // indirect
-	github.com/walle/lll v1.0.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20221208152030-732eee02a75a // indirect
 	golang.org/x/mod v0.13.0 // indirect
