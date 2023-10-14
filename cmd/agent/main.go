@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -13,7 +14,21 @@ import (
 	poller "github.com/Xacor/go-metrics/internal/agent/http"
 )
 
+var (
+	Version string = "N/A"
+	Date    string = "N/A"
+	Commit  string = "N/A"
+)
+
+func printInfo() {
+	fmt.Printf("Build version: %s\n", Version)
+	fmt.Printf("Build date: %s\n", Date)
+	fmt.Printf("Build commit: %s\n", Commit)
+}
+
 func main() {
+	printInfo()
+
 	cfg := config.Config{}
 	err := cfg.ParseAll()
 	if err != nil {

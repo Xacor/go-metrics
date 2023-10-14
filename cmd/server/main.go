@@ -20,7 +20,20 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	Version string = "N/A"
+	Date    string = "N/A"
+	Commit  string = "N/A"
+)
+
+func printInfo() {
+	fmt.Printf("Build version: %s\n", Version)
+	fmt.Printf("Build date: %s\n", Date)
+	fmt.Printf("Build commit: %s\n", Commit)
+}
+
 func main() {
+	printInfo()
 
 	gracefullShutdown := make(chan os.Signal, 1)
 	signal.Notify(gracefullShutdown, syscall.SIGINT, syscall.SIGTERM)
