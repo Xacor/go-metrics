@@ -21,15 +21,15 @@ import (
 )
 
 var (
-	Version string = "N/A"
-	Date    string = "N/A"
-	Commit  string = "N/A"
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
 )
 
 func printInfo() {
-	fmt.Printf("Build version: %s\n", Version)
-	fmt.Printf("Build date: %s\n", Date)
-	fmt.Printf("Build commit: %s\n", Commit)
+	fmt.Printf("Build version: %s\n", buildVersion)
+	fmt.Printf("Build date: %s\n", buildDate)
+	fmt.Printf("Build commit: %s\n", buildCommit)
 }
 
 func main() {

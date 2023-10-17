@@ -19,9 +19,9 @@ func TestHealthService_Ping(t *testing.T) {
 		code int
 	}
 	tests := []struct {
+		prepare func(f *fields)
 		name    string
 		want    want
-		prepare func(f *fields)
 	}{
 		{
 			name: "ping_ok",

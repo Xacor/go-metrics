@@ -44,10 +44,8 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		ast.Inspect(file, func(node ast.Node) bool {
 			switch x := node.(type) {
 			case *ast.FuncDecl:
-				if isMainFunc(x) {
-					main = true
-					return true
-				}
+				main = isMainFunc(x)
+				return main
 			case *ast.SelectorExpr:
 				if main {
 					if isOsExit(x) {

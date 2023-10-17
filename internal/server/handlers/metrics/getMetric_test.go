@@ -20,13 +20,13 @@ func TestAPI_MetricsHandler(t *testing.T) {
 		storage *mock_storage.MockStorage
 	}
 	type want struct {
-		code        int
 		contentType string
+		code        int
 	}
 	tests := []struct {
+		prepare func(f *fields)
 		name    string
 		want    want
-		prepare func(f *fields)
 	}{
 		{
 			name: "positive_case",
@@ -90,8 +90,8 @@ func TestAPI_MetricsHandler(t *testing.T) {
 
 func BenchmarkAPI_MetricsHandler(b *testing.B) {
 	type want struct {
-		code        int
 		contentType string
+		code        int
 	}
 	benchmarks := []struct {
 		name string
@@ -148,10 +148,10 @@ func BenchmarkAPI_MetricJSON(b *testing.B) {
 		code int
 	}
 	benchmarks := []struct {
+		prepare func(f *fields)
 		name    string
 		body    []byte
 		want    want
-		prepare func(f *fields)
 	}{
 		{
 			name: "benchmark",
@@ -217,10 +217,10 @@ func TestAPI_MetricJSON(t *testing.T) {
 		code int
 	}
 	tests := []struct {
+		prepare func(f *fields)
 		name    string
 		body    []byte
 		want    want
-		prepare func(f *fields)
 	}{
 		{
 			name: "positive",

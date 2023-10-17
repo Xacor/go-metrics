@@ -10,23 +10,23 @@ import (
 )
 
 type PollerConfig struct {
-	ReportInterval int
-	RateLimit      int
-	Address        string
-	Key            string
 	MetricCh       <-chan metric.UpdateResult
 	Client         *http.Client
 	Logger         *zap.Logger
+	Address        string
+	Key            string
+	ReportInterval int
+	RateLimit      int
 }
 
 type Poller struct {
-	reportInterval int
-	rateLimit      int
-	address        string
-	key            string
 	metricCh       <-chan metric.UpdateResult
 	client         *http.Client
 	logger         *zap.Logger
+	address        string
+	key            string
+	reportInterval int
+	rateLimit      int
 }
 
 func NewPoller(cfg *PollerConfig) *Poller {

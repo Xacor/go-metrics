@@ -1,6 +1,8 @@
 package main
 
 import (
+	"regexp"
+
 	"github.com/Xacor/go-metrics/tools/exitchecker"
 	"github.com/fatih/errwrap/errwrap"
 	"github.com/masibw/goone"
@@ -49,12 +51,6 @@ import (
 )
 
 func main() {
-	staticChecks := map[string]bool{
-		"SA*": true,
-		"S*":  true,
-		"ST*": true,
-	}
-
 	mychecks := []*analysis.Analyzer{
 		// passes linters
 		asmdecl.Analyzer,
@@ -104,8 +100,9 @@ func main() {
 		exitchecker.ExitChecker,
 	}
 
+	re := regexp.MustCompile(`(SA*|S1*|ST1*)`)
 	for _, v := range staticcheck.Analyzers {
-		if staticChecks[v.Analyzer.Name] {
+		if re.MatchString(v.Analyzer.Name) {
 			mychecks = append(mychecks, v.Analyzer)
 		}
 	}
