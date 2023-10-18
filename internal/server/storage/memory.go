@@ -14,10 +14,10 @@ import (
 // Реализует интерфейс Storage для in-memory хранилища.
 type MemStorage struct {
 	data          map[string]model.Metrics
-	mu            sync.RWMutex
 	fs            *FileStorage
 	l             *zap.Logger
 	storeInterval int
+	mu            sync.RWMutex
 }
 
 func NewMemStorage(backup *FileStorage, storeInterval int, logger *zap.Logger) *MemStorage {

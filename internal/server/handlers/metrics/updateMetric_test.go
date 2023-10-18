@@ -24,10 +24,10 @@ func TestAPI_UpdateJSON(t *testing.T) {
 		code int
 	}
 	tests := []struct {
+		prepare func(f *fields)
 		name    string
 		body    []byte
 		want    want
-		prepare func(f *fields)
 	}{
 		{
 			name: "new_metric",
@@ -159,10 +159,10 @@ func TestAPI_UpdateMetrics(t *testing.T) {
 		code int
 	}
 	tests := []struct {
+		prepare func(f *fields)
 		name    string
 		body    []byte
 		want    want
-		prepare func(f *fields)
 	}{
 		{
 			name: "new_metric",
@@ -247,10 +247,10 @@ func BenchmarkAPI_UpdateMetrics(b *testing.B) {
 		code int
 	}
 	benchmarks := []struct {
+		prepare func(f *fields)
 		name    string
 		body    []byte
 		want    want
-		prepare func(f *fields)
 	}{
 		{
 			name: "new_metric",

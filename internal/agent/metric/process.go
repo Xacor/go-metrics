@@ -6,9 +6,9 @@ import (
 )
 
 type Process struct {
+	CPUutilization []Gauge
 	TotalMemory    Gauge
 	FreeMemory     Gauge
-	CPUutilization []Gauge
 }
 
 func NewProcess() (*Process, error) {

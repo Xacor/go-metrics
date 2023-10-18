@@ -20,7 +20,20 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
+)
+
+func printInfo() {
+	fmt.Printf("Build version: %s\n", buildVersion)
+	fmt.Printf("Build date: %s\n", buildDate)
+	fmt.Printf("Build commit: %s\n", buildCommit)
+}
+
 func main() {
+	printInfo()
 
 	gracefullShutdown := make(chan os.Signal, 1)
 	signal.Notify(gracefullShutdown, syscall.SIGINT, syscall.SIGTERM)
@@ -31,7 +44,7 @@ func main() {
 		log.Fatalf("can't parse configuration: %v", err)
 	}
 
-	if err := logger.Initialize(cfg.LogLevel); err != nil {
+	if err = logger.Initialize(cfg.LogLevel); err != nil {
 		log.Fatalf("can't initialize zap logger: %v", err)
 	}
 
