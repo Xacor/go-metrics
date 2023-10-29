@@ -10,13 +10,14 @@ import (
 )
 
 type Config struct {
-	Address             string `env:"ADDRESS"`
-	LogLevel            string `env:"LOG_LEVEL"`
-	Key                 string `env:"KEY"`
-	CryptoKeyPublicFile string `env:"CRYPTO_KEY"`
-	ReportInterval      int    `env:"REPORT_INTERVAL"`
-	PollInterval        int    `env:"POLL_INTERVAL"`
-	RateLimit           int    `env:"RATE_LIMIT"`
+	Address             string `env:"ADDRESS" json:"address"`
+	LogLevel            string `env:"LOG_LEVEL" json:"log_level"`
+	Key                 string `env:"KEY" json:"key"`
+	CryptoKeyPublicFile string `env:"CRYPTO_KEY" json:"crypto_key"`
+	ConfigFile          string `env:"CONFIG" json:"-"`
+	ReportInterval      int    `env:"REPORT_INTERVAL" json:"report_interval"`
+	PollInterval        int    `env:"POLL_INTERVAL" json:"poll_interval"`
+	RateLimit           int    `env:"RATE_LIMIT" json:"rate_limit"`
 }
 
 func (c *Config) GetURL() string {

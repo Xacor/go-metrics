@@ -7,14 +7,19 @@ import (
 )
 
 func RegisterMiddlewares(r *chi.Mux, cfg *config.Config) (chi.Middlewares, error) {
-	key, err := cfg.GetKey()
-	if err != nil {
-		return nil, err
+	var signKey string
+	if cfg.KeyFile != "" {
+		key, err := cfg.GetKey()
+		if err != nil {
+			return nil, err
+		}
+		signKey = key
 	}
 
 	r.Use(WithLogging)
-	r.Use(WithCheckSignature(key))
+	r.Use(WithCheckSignature(signKey))
 	r.Use(WithCompressRead)
+
 	if cfg.CryptoKeyPrivateFile != "" {
 		pkey, err := cfg.GetPrivateKey()
 		if err != nil {
@@ -24,7 +29,7 @@ func RegisterMiddlewares(r *chi.Mux, cfg *config.Config) (chi.Middlewares, error
 	}
 
 	r.Use(WithCompressWrite)
-	r.Use(WithSignature(key))
+	r.Use(WithSignature(signKey))
 	r.Use(chimiddleware.Recoverer)
 
 	r.Mount("/debug", chimiddleware.Profiler())

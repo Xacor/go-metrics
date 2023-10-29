@@ -44,6 +44,7 @@ func NewPoller(cfg *PollerConfig) *Poller {
 		key:            cfg.Key,
 		rateLimit:      cfg.RateLimit,
 	}
+
 	if cfg.PublicKey != nil {
 		p.publicKey = cfg.PublicKey
 	}
@@ -91,17 +92,21 @@ func (p *Poller) Send(m metric.Metrics) error {
 		return err
 	}
 
-	encryptedBytes, err := rsa.EncryptOAEP(
-		sha256.New(),
-		rand.Reader,
-		p.publicKey,
-		compressed,
-		nil)
+	reader := bytes.NewReader(compressed)
 
-	if err != nil {
-		return err
+	if p.publicKey != nil {
+		encryptedBytes, err := rsa.EncryptOAEP(
+			sha256.New(),
+			rand.Reader,
+			p.publicKey,
+			compressed,
+			nil)
+		if err != nil {
+			return err
+		}
+		reader = bytes.NewReader(encryptedBytes)
 	}
-	reader := bytes.NewReader(encryptedBytes)
+
 	request, err := http.NewRequest(http.MethodPost, p.address+"/updates/", reader)
 	if err != nil {
 		return err
