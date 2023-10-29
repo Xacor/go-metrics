@@ -13,6 +13,7 @@ func (c *Config) ParseFlags() {
 	flag.StringVar(&c.FileStoragePath, "f", "/tmp/metrics-db.json", "file storage path")
 	flag.StringVar(&c.DatabaseDSN, "d", "", "database dsn e.g. host=127.0.0.1 port=5432 user=user dbname=db password=pass")
 	flag.StringVar(&c.KeyFile, "k", "", "signature key")
+	flag.StringVar(&c.CryptoKeyPrivateFile, "crypto-key", "", "path to RSA private key file in PEM format")
 	flag.BoolVar(&c.Restore, "r", true, "leave true to restore previous state")
 	flag.IntVar(&c.StoreInterval, "i", 300, "time between state saves")
 	flag.Parse()

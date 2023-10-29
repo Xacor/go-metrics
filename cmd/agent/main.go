@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rsa"
 	"fmt"
 	"log"
 	"net/http"
@@ -52,6 +53,15 @@ func main() {
 	}
 	defer monitor.Close()
 
+	var publicKey *rsa.PublicKey
+	if cfg.CryptoKeyPublicFile != "" {
+		publicKey, err = cfg.GetPublicKey()
+		if err != nil {
+			l.Error("failed to get public encryption key", zap.Error(err))
+			return
+		}
+	}
+
 	pcfg := poller.PollerConfig{
 		ReportInterval: cfg.GetReportInterval(),
 		RateLimit:      cfg.GetRateLimit(),
@@ -60,6 +70,7 @@ func main() {
 		MetricCh:       monitor.C,
 		Client:         &http.Client{},
 		Logger:         l,
+		PublicKey:      publicKey,
 	}
 
 	poller := poller.NewPoller(&pcfg)

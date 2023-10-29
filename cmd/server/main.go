@@ -52,7 +52,10 @@ func main() {
 	defer l.Sync()
 
 	r := chi.NewRouter()
-	middleware.RegisterMiddlewares(r, &cfg)
+	_, err = middleware.RegisterMiddlewares(r, &cfg)
+	if err != nil {
+		l.Error("failed to configure middleware", zap.Error(err))
+	}
 
 	repo := db.InitDB(&cfg)
 	defer repo.Close()

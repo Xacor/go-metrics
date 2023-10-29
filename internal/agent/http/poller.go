@@ -2,6 +2,9 @@ package http
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
 	"net/http"
 	"time"
 
@@ -13,6 +16,7 @@ type PollerConfig struct {
 	MetricCh       <-chan metric.UpdateResult
 	Client         *http.Client
 	Logger         *zap.Logger
+	PublicKey      *rsa.PublicKey
 	Address        string
 	Key            string
 	ReportInterval int
@@ -23,6 +27,7 @@ type Poller struct {
 	metricCh       <-chan metric.UpdateResult
 	client         *http.Client
 	logger         *zap.Logger
+	publicKey      *rsa.PublicKey
 	address        string
 	key            string
 	reportInterval int
@@ -30,7 +35,7 @@ type Poller struct {
 }
 
 func NewPoller(cfg *PollerConfig) *Poller {
-	return &Poller{
+	p := &Poller{
 		reportInterval: cfg.ReportInterval,
 		address:        cfg.Address,
 		metricCh:       cfg.MetricCh,
@@ -39,6 +44,11 @@ func NewPoller(cfg *PollerConfig) *Poller {
 		key:            cfg.Key,
 		rateLimit:      cfg.RateLimit,
 	}
+	if cfg.PublicKey != nil {
+		p.publicKey = cfg.PublicKey
+	}
+
+	return p
 }
 
 func (p *Poller) Run() {
@@ -81,7 +91,14 @@ func (p *Poller) Send(m metric.Metrics) error {
 		return err
 	}
 
-	reader := bytes.NewReader(compressed)
+	encryptedBytes, err := rsa.EncryptOAEP(
+		sha256.New(),
+		rand.Reader,
+		p.publicKey,
+		compressed,
+		nil)
+
+	reader := bytes.NewReader(encryptedBytes)
 	request, err := http.NewRequest(http.MethodPost, p.address+"/updates/", reader)
 	if err != nil {
 		return err
