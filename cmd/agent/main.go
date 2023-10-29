@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/Xacor/go-metrics/internal/agent/config"
@@ -74,7 +77,19 @@ func main() {
 	}
 
 	poller := poller.NewPoller(&pcfg)
-	poller.Run()
+
+	gracefullShutdown := make(chan os.Signal, 2)
+	signal.Notify(gracefullShutdown, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+	exitCh, doneCh := make(chan struct{}), make(chan struct{})
+	go poller.Run(exitCh, doneCh)
+
+	l.Info("signal received, gracefully shutting down", zap.Any("signal", <-gracefullShutdown))
+
+	exitCh <- struct{}{}
+	<-doneCh
+
+	l.Info("gracefully shutting down")
 
 	defer l.Sync()
 }

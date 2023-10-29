@@ -52,7 +52,7 @@ func NewPoller(cfg *PollerConfig) *Poller {
 	return p
 }
 
-func (p *Poller) Run() {
+func (p *Poller) Run(exitCh chan struct{}, doneCh chan struct{}) {
 	p.logger.Info("poller started")
 	semaphore := NewSemaphore(p.rateLimit)
 
@@ -77,6 +77,25 @@ func (p *Poller) Run() {
 			}(res.Metrtics)
 
 		case <-p.metricCh:
+
+		case <-exitCh:
+			p.logger.Info("sending latest metrics batch")
+			res := <-p.metricCh
+			if res.Err != nil {
+				p.logger.Error("failed to read from UpdateResult", zap.Error(res.Err))
+				continue
+			}
+
+			semaphore.Acquire()
+			defer semaphore.Release()
+
+			err := p.Send(res.Metrtics)
+			if err != nil {
+				p.retry(p.Send, res.Metrtics)
+			}
+
+			doneCh <- struct{}{}
+			return
 		}
 	}
 }
