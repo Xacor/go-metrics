@@ -98,6 +98,9 @@ func (p *Poller) Send(m metric.Metrics) error {
 		compressed,
 		nil)
 
+	if err != nil {
+		return err
+	}
 	reader := bytes.NewReader(encryptedBytes)
 	request, err := http.NewRequest(http.MethodPost, p.address+"/updates/", reader)
 	if err != nil {
