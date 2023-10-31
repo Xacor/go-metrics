@@ -1,7 +1,7 @@
 package main
 
 import (
-	"crypto/rsa"
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -43,6 +43,8 @@ func main() {
 		log.Fatalf("can't initialize zap logger: %v", err)
 	}
 	l := logger.Get()
+	defer l.Sync()
+
 	l.Info("agent configuration", zap.Any("cfg", cfg))
 
 	key, err := cfg.GetKey()
@@ -56,13 +58,9 @@ func main() {
 	}
 	defer monitor.Close()
 
-	var publicKey *rsa.PublicKey
-	if cfg.CryptoKeyPublicFile != "" {
-		publicKey, err = cfg.GetPublicKey()
-		if err != nil {
-			l.Error("failed to get public encryption key", zap.Error(err))
-			return
-		}
+	publicKey, err := cfg.GetPublicKey()
+	if err != nil {
+		l.Error("failed to get public key", zap.Error(err))
 	}
 
 	pcfg := poller.PollerConfig{
@@ -81,15 +79,10 @@ func main() {
 	gracefullShutdown := make(chan os.Signal, 2)
 	signal.Notify(gracefullShutdown, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	exitCh, doneCh := make(chan struct{}), make(chan struct{})
-	go poller.Run(exitCh, doneCh)
+	ctx, stopMonitor := context.WithCancel(context.Background())
+	go poller.Run(ctx)
 
 	l.Info("signal received, gracefully shutting down", zap.Any("signal", <-gracefullShutdown))
-
-	exitCh <- struct{}{}
-	<-doneCh
-
+	stopMonitor()
 	l.Info("gracefully shutting down")
-
-	defer l.Sync()
 }

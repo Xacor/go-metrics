@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -52,20 +53,21 @@ func NewPoller(cfg *PollerConfig) *Poller {
 	return p
 }
 
-func (p *Poller) Run(exitCh chan struct{}, doneCh chan struct{}) {
+func (p *Poller) Run(ctx context.Context) {
 	p.logger.Info("poller started")
 	semaphore := NewSemaphore(p.rateLimit)
 
 	t := time.NewTicker(time.Second * time.Duration(p.reportInterval))
+	var snap metric.UpdateResult
 	for {
 		select {
-		case <-t.C:
-			res := <-p.metricCh
-			if res.Err != nil {
-				p.logger.Error("failed to read from UpdateResult", zap.Error(res.Err))
+		case snap = <-p.metricCh:
+			if snap.Err != nil {
+				p.logger.Error("failed to read from UpdateResult", zap.Error(snap.Err))
 				continue
 			}
 
+		case <-t.C:
 			go func(m metric.Metrics) {
 				semaphore.Acquire()
 				defer semaphore.Release()
@@ -74,27 +76,19 @@ func (p *Poller) Run(exitCh chan struct{}, doneCh chan struct{}) {
 				if err != nil {
 					p.retry(p.Send, m)
 				}
-			}(res.Metrtics)
+			}(snap.Metrics)
 
-		case <-p.metricCh:
-
-		case <-exitCh:
+		case <-ctx.Done():
 			p.logger.Info("sending latest metrics batch")
-			res := <-p.metricCh
-			if res.Err != nil {
-				p.logger.Error("failed to read from UpdateResult", zap.Error(res.Err))
-				continue
-			}
 
 			semaphore.Acquire()
 			defer semaphore.Release()
 
-			err := p.Send(res.Metrtics)
+			err := p.Send(snap.Metrics)
 			if err != nil {
-				p.retry(p.Send, res.Metrtics)
+				p.retry(p.Send, snap.Metrics)
 			}
 
-			doneCh <- struct{}{}
 			return
 		}
 	}

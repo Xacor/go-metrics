@@ -15,8 +15,8 @@ type Monitor struct {
 }
 
 type UpdateResult struct {
-	Metrtics Metrics
-	Err      error
+	Metrics Metrics
+	Err     error
 }
 
 func NewMonitor(d time.Duration) (*Monitor, error) {
@@ -55,8 +55,8 @@ func (m *Monitor) run() {
 			logger.Get().Debug("[monitor]", zap.Time("tick", t))
 			err := update(m.metrics)
 			result := UpdateResult{
-				Metrtics: *m.metrics,
-				Err:      err,
+				Metrics: *m.metrics,
+				Err:     err,
 			}
 			sendResult(m.C, result)
 		}

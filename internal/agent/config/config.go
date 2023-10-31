@@ -49,6 +49,10 @@ func (c *Config) GetRateLimit() int {
 }
 
 func (c *Config) GetPublicKey() (*rsa.PublicKey, error) {
+	if c.CryptoKeyPublicFile == "" {
+		return nil, nil
+	}
+
 	key, err := os.ReadFile(c.CryptoKeyPublicFile)
 	if err != nil {
 		return nil, err
