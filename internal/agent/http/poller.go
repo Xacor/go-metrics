@@ -53,7 +53,7 @@ func NewPoller(cfg *PollerConfig) *Poller {
 	return p
 }
 
-func (p *Poller) Run(ctx context.Context) {
+func (p *Poller) Run(ctx context.Context, exitCh chan struct{}) {
 	p.logger.Info("poller started")
 	semaphore := NewSemaphore(p.rateLimit)
 
@@ -89,6 +89,7 @@ func (p *Poller) Run(ctx context.Context) {
 				p.retry(p.Send, snap.Metrics)
 			}
 
+			exitCh <- struct{}{}
 			return
 		}
 	}

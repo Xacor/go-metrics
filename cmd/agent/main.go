@@ -80,9 +80,12 @@ func main() {
 	signal.Notify(gracefullShutdown, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	ctx, stopMonitor := context.WithCancel(context.Background())
-	go poller.Run(ctx)
+	exitCh := make(chan struct{})
+	go poller.Run(ctx, exitCh)
 
 	l.Info("signal received, gracefully shutting down", zap.Any("signal", <-gracefullShutdown))
 	stopMonitor()
+	<-exitCh
+
 	l.Info("gracefully shutting down")
 }
