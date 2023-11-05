@@ -136,6 +136,13 @@ func (p *Poller) Send(m metric.Metrics) error {
 
 	request.Header.Set("Content-Encoding", "gzip")
 	request.Header.Set("Content-Type", "application/json")
+
+	ip, err := GetLocalIP()
+	if err != nil {
+		return err
+	}
+	request.Header.Set("X-Real-IP", ip)
+
 	resp, err := p.client.Do(request)
 	if err != nil {
 		return err
