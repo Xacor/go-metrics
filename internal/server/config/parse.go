@@ -18,6 +18,7 @@ func (c *Config) ParseFlags() {
 	flag.StringVar(&c.KeyFile, "k", "", "signature key")
 	flag.StringVar(&c.CryptoKeyPrivateFile, "crypto-key", "", "path to RSA private key file in PEM format")
 	flag.StringVar(&c.ConfigFile, "c", "", "path to configuration file")
+	flag.StringVar(&c.TrustedSubnet, "t", "", "trusted subnet")
 	flag.BoolVar(&c.Restore, "r", true, "leave true to restore previous state")
 	flag.IntVar(&c.StoreInterval, "i", 300, "time between state saves")
 	flag.Parse()

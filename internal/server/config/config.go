@@ -17,6 +17,7 @@ type Config struct {
 	KeyFile              string `env:"KEY" json:"key_file"`
 	CryptoKeyPrivateFile string `env:"CRYPTO_KEY" json:"crypto_key"`
 	ConfigFile           string `env:"CONFIG" json:"-"`
+	TrustedSubnet        string `env:"TRUSTED_SUBNET" json:"trusted_subnet"`
 	StoreInterval        int    `env:"STORE_INTERVAL" json:"store_interval"`
 	Restore              bool   `env:"RESTORE" json:"restore"`
 }

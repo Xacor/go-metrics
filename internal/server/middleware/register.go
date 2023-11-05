@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"net"
+
 	"github.com/Xacor/go-metrics/internal/server/config"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -17,6 +19,15 @@ func RegisterMiddlewares(r *chi.Mux, cfg *config.Config) (chi.Middlewares, error
 	}
 
 	r.Use(WithLogging)
+
+	if cfg.TrustedSubnet != "" {
+		_, trustedNet, err := net.ParseCIDR(cfg.TrustedSubnet)
+		if err != nil {
+			return nil, err
+		}
+		r.Use(WithCheckSubnet(trustedNet))
+	}
+
 	r.Use(WithCheckSignature(signKey))
 	r.Use(WithCompressRead)
 
