@@ -2,6 +2,10 @@ package http
 
 import (
 	"bytes"
+	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
 	"net/http"
 	"time"
 
@@ -13,6 +17,7 @@ type PollerConfig struct {
 	MetricCh       <-chan metric.UpdateResult
 	Client         *http.Client
 	Logger         *zap.Logger
+	PublicKey      *rsa.PublicKey
 	Address        string
 	Key            string
 	ReportInterval int
@@ -23,6 +28,7 @@ type Poller struct {
 	metricCh       <-chan metric.UpdateResult
 	client         *http.Client
 	logger         *zap.Logger
+	publicKey      *rsa.PublicKey
 	address        string
 	key            string
 	reportInterval int
@@ -30,7 +36,7 @@ type Poller struct {
 }
 
 func NewPoller(cfg *PollerConfig) *Poller {
-	return &Poller{
+	p := &Poller{
 		reportInterval: cfg.ReportInterval,
 		address:        cfg.Address,
 		metricCh:       cfg.MetricCh,
@@ -39,22 +45,29 @@ func NewPoller(cfg *PollerConfig) *Poller {
 		key:            cfg.Key,
 		rateLimit:      cfg.RateLimit,
 	}
+
+	if cfg.PublicKey != nil {
+		p.publicKey = cfg.PublicKey
+	}
+
+	return p
 }
 
-func (p *Poller) Run() {
+func (p *Poller) Run(ctx context.Context, exitCh chan struct{}) {
 	p.logger.Info("poller started")
 	semaphore := NewSemaphore(p.rateLimit)
 
 	t := time.NewTicker(time.Second * time.Duration(p.reportInterval))
+	var snap metric.UpdateResult
 	for {
 		select {
-		case <-t.C:
-			res := <-p.metricCh
-			if res.Err != nil {
-				p.logger.Error("failed to read from UpdateResult", zap.Error(res.Err))
+		case snap = <-p.metricCh:
+			if snap.Err != nil {
+				p.logger.Error("failed to read from UpdateResult", zap.Error(snap.Err))
 				continue
 			}
 
+		case <-t.C:
 			go func(m metric.Metrics) {
 				semaphore.Acquire()
 				defer semaphore.Release()
@@ -63,9 +76,21 @@ func (p *Poller) Run() {
 				if err != nil {
 					p.retry(p.Send, m)
 				}
-			}(res.Metrtics)
+			}(snap.Metrics)
 
-		case <-p.metricCh:
+		case <-ctx.Done():
+			p.logger.Info("sending latest metrics batch")
+
+			semaphore.Acquire()
+			defer semaphore.Release()
+
+			err := p.Send(snap.Metrics)
+			if err != nil {
+				p.retry(p.Send, snap.Metrics)
+			}
+
+			exitCh <- struct{}{}
+			return
 		}
 	}
 }
@@ -82,6 +107,20 @@ func (p *Poller) Send(m metric.Metrics) error {
 	}
 
 	reader := bytes.NewReader(compressed)
+
+	if p.publicKey != nil {
+		encryptedBytes, err := rsa.EncryptOAEP(
+			sha256.New(),
+			rand.Reader,
+			p.publicKey,
+			compressed,
+			nil)
+		if err != nil {
+			return err
+		}
+		reader = bytes.NewReader(encryptedBytes)
+	}
+
 	request, err := http.NewRequest(http.MethodPost, p.address+"/updates/", reader)
 	if err != nil {
 		return err

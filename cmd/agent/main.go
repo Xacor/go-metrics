@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/Xacor/go-metrics/internal/agent/config"
@@ -39,6 +43,8 @@ func main() {
 		log.Fatalf("can't initialize zap logger: %v", err)
 	}
 	l := logger.Get()
+	defer l.Sync()
+
 	l.Info("agent configuration", zap.Any("cfg", cfg))
 
 	key, err := cfg.GetKey()
@@ -52,6 +58,11 @@ func main() {
 	}
 	defer monitor.Close()
 
+	publicKey, err := cfg.GetPublicKey()
+	if err != nil {
+		l.Error("failed to get public key", zap.Error(err))
+	}
+
 	pcfg := poller.PollerConfig{
 		ReportInterval: cfg.GetReportInterval(),
 		RateLimit:      cfg.GetRateLimit(),
@@ -60,10 +71,21 @@ func main() {
 		MetricCh:       monitor.C,
 		Client:         &http.Client{},
 		Logger:         l,
+		PublicKey:      publicKey,
 	}
 
 	poller := poller.NewPoller(&pcfg)
-	poller.Run()
 
-	defer l.Sync()
+	gracefullShutdown := make(chan os.Signal, 2)
+	signal.Notify(gracefullShutdown, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+	ctx, stopMonitor := context.WithCancel(context.Background())
+	exitCh := make(chan struct{})
+	go poller.Run(ctx, exitCh)
+
+	l.Info("signal received, gracefully shutting down", zap.Any("signal", <-gracefullShutdown))
+	stopMonitor()
+	<-exitCh
+
+	l.Info("gracefully shutting down")
 }

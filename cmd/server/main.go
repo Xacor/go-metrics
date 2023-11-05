@@ -35,8 +35,8 @@ func printInfo() {
 func main() {
 	printInfo()
 
-	gracefullShutdown := make(chan os.Signal, 1)
-	signal.Notify(gracefullShutdown, syscall.SIGINT, syscall.SIGTERM)
+	gracefullShutdown := make(chan os.Signal, 2)
+	signal.Notify(gracefullShutdown, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	cfg := config.Config{}
 	err := cfg.ParseAll()
@@ -52,7 +52,10 @@ func main() {
 	defer l.Sync()
 
 	r := chi.NewRouter()
-	middleware.RegisterMiddlewares(r, &cfg)
+	_, err = middleware.RegisterMiddlewares(r, &cfg)
+	if err != nil {
+		l.Error("failed to configure middleware", zap.Error(err))
+	}
 
 	repo := db.InitDB(&cfg)
 	defer repo.Close()
@@ -79,7 +82,7 @@ func main() {
 	<-gracefullShutdown
 
 	l.Info("shutting down")
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(timeoutCtx); err != nil {
