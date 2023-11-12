@@ -89,3 +89,7 @@ func main() {
 		l.Error(err.Error())
 	}
 }
+
+func startRPC() {
+
+}
