@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "proto/models.proto";
+
+option go_package = "go-metrics/proto";
+
+service Metrics {
+  rpc Get(GetRequest) returns (GetResponse);
+  rpc List(google.protobuf.Empty) returns (ListResponse);
+  rpc Update(UpdateRequest) returns (UpdateResponse);
+  rpc UpdateList(UpdateListRequest) returns (google.protobuf.Empty);
+} 
