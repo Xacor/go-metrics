@@ -14,7 +14,14 @@ import (
 type MetricsServer struct {
 	pb.UnimplementedMetricsServer
 	repo   storage.MetricRepo
-	logger zap.Logger
+	logger *zap.Logger
+}
+
+func NewMetricsServer(repo storage.MetricRepo, logger *zap.Logger) *MetricsServer {
+	return &MetricsServer{
+		repo:   repo,
+		logger: logger,
+	}
 }
 
 func (s *MetricsServer) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {

@@ -11,6 +11,7 @@ import (
 
 type Config struct {
 	Address              string `env:"ADDRESS" json:"address"`
+	GRPCAdress           string `env:"GRPC_ADDRESS" json:"GRCP_address"`
 	LogLevel             string `env:"LOG_LEVEL" json:"log_level"`
 	FileStoragePath      string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
 	DatabaseDSN          string `env:"DATABASE_DSN" json:"database_dsn"`

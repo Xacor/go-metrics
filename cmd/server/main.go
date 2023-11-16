@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,12 +13,16 @@ import (
 
 	"github.com/Xacor/go-metrics/internal/logger"
 	"github.com/Xacor/go-metrics/internal/server/config"
+	"github.com/Xacor/go-metrics/internal/server/core"
 	"github.com/Xacor/go-metrics/internal/server/core/db"
 	"github.com/Xacor/go-metrics/internal/server/handlers/database"
 	"github.com/Xacor/go-metrics/internal/server/handlers/metrics"
 	"github.com/Xacor/go-metrics/internal/server/middleware"
+	"github.com/Xacor/go-metrics/internal/server/storage"
+	"github.com/Xacor/go-metrics/proto"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -79,6 +84,8 @@ func main() {
 		}
 	}()
 
+	grpc := startGRPC(cfg, l, repo)
+
 	<-gracefullShutdown
 
 	l.Info("shutting down")
@@ -88,8 +95,24 @@ func main() {
 	if err := srv.Shutdown(timeoutCtx); err != nil {
 		l.Error(err.Error())
 	}
+
+	grpc.GracefulStop()
 }
 
-func startRPC() {
+func startGRPC(cfg config.Config, log *zap.Logger, repo storage.MetricRepo) *grpc.Server {
+	listen, err := net.Listen("tcp", cfg.GRPCAdress)
+	if err != nil {
+		log.Fatal("unable to listen tcp", zap.Error(err))
+	}
 
+	s := grpc.NewServer()
+	proto.RegisterMetricsServer(s, core.NewMetricsServer(repo, log))
+
+	go func() {
+		if err := s.Serve(listen); err != nil {
+			log.Fatal("unable to start grpc server", zap.Error(err))
+		}
+	}()
+
+	return s
 }
