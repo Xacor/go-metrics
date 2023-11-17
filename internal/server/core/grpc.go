@@ -8,6 +8,8 @@ import (
 	"github.com/Xacor/go-metrics/internal/server/storage"
 	pb "github.com/Xacor/go-metrics/proto"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -27,7 +29,7 @@ func NewMetricsServer(repo storage.MetricRepo, logger *zap.Logger) *MetricsServe
 func (s *MetricsServer) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {
 	result, err := s.repo.Get(ctx, req.GetId())
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.Internal, "unable to get metric with id %v: %v", req.GetId(), err)
 	}
 
 	return &pb.GetResponse{Metric: converter.ModelToProto(result)}, nil
@@ -36,7 +38,7 @@ func (s *MetricsServer) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetRes
 func (s *MetricsServer) List(ctx context.Context, _ *emptypb.Empty) (*pb.ListResponse, error) {
 	data, err := s.repo.All(ctx)
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.Internal, "unable to get metrics: %v", err)
 	}
 
 	return &pb.ListResponse{Metrics: converter.SliceModelToProto(data)}, nil
@@ -48,13 +50,13 @@ func (s *MetricsServer) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.
 		result, err = s.repo.Create(ctx, converter.ProtoToModel(req.GetMetric()))
 		if err != nil {
 			s.logger.Error(err.Error())
-			return nil, err
+			return nil, status.Errorf(codes.Internal, "unable to create metric %+v: %v", req.Metric, err)
 		}
 	} else {
 		result, err = s.repo.Update(ctx, converter.ProtoToModel(req.GetMetric()))
 		if err != nil {
 			s.logger.Error(err.Error())
-			return nil, err
+			return nil, status.Errorf(codes.Internal, "unable to update metric %+v: %v", req.Metric, err)
 		}
 	}
 
@@ -64,7 +66,7 @@ func (s *MetricsServer) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.
 func (s *MetricsServer) UpdateList(ctx context.Context, req *pb.UpdateListRequest) (*emptypb.Empty, error) {
 	if err := s.repo.UpdateBatch(ctx, converter.SliceProtoToModel(req.GetMetric())); err != nil {
 		s.logger.Error("error when updating batch", zap.Error(err), zap.Any("batch", req.GetMetric()))
-		return nil, err
+		return nil, status.Errorf(codes.Internal, "unable to update batch %+v: %v", req.Metric, err)
 	}
 
 	return &emptypb.Empty{}, nil

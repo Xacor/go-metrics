@@ -17,12 +17,14 @@ import (
 	"github.com/Xacor/go-metrics/internal/server/core/db"
 	"github.com/Xacor/go-metrics/internal/server/handlers/database"
 	"github.com/Xacor/go-metrics/internal/server/handlers/metrics"
+	"github.com/Xacor/go-metrics/internal/server/interceptors"
 	"github.com/Xacor/go-metrics/internal/server/middleware"
 	"github.com/Xacor/go-metrics/internal/server/storage"
 	"github.com/Xacor/go-metrics/proto"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 var (
@@ -100,12 +102,23 @@ func main() {
 }
 
 func startGRPC(cfg config.Config, log *zap.Logger, repo storage.MetricRepo) *grpc.Server {
-	listen, err := net.Listen("tcp", cfg.GRPCAdress)
+	listen, err := net.Listen("tcp", cfg.GAddress)
 	if err != nil {
 		log.Fatal("unable to listen tcp", zap.Error(err))
 	}
 
-	s := grpc.NewServer()
+	opts := make([]grpc.ServerOption, 0)
+	if cfg.GRPCConfig.TLSCertFile != "" && cfg.GRPCConfig.TLSKeyFile != "" {
+		creds, err := credentials.NewServerTLSFromFile(cfg.TLSCertFile, cfg.GRPCConfig.TLSKeyFile)
+		if err != nil {
+			log.Fatal("failed to create credentials: %v", zap.Error(err))
+		}
+		opts = append(opts, grpc.Creds(creds))
+	}
+
+	opts = append(opts, interceptors.RegisterUnaryInterceptorChain(cfg))
+
+	s := grpc.NewServer(opts...)
 	proto.RegisterMetricsServer(s, core.NewMetricsServer(repo, log))
 
 	go func() {
