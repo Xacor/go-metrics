@@ -10,37 +10,26 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var (
-	allowedSubnet *net.IPNet
-)
+func InitCheckSubnet(allowedSubnet *net.IPNet) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context,
+		req interface{},
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler) (interface{}, error) {
 
-func InitCheckSubnet(subnet *net.IPNet) grpc.UnaryServerInterceptor {
-	if allowedSubnet != nil {
-		return checkSubnet
-	}
+		if allowedSubnet == nil {
+			return handler(ctx, req)
+		}
 
-	allowedSubnet = subnet
-	return checkSubnet
-}
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			return nil, status.Error(codes.Internal, "unable to get request metadata")
+		}
 
-func checkSubnet(ctx context.Context,
-	req interface{},
-	info *grpc.UnaryServerInfo,
-	handler grpc.UnaryHandler) (interface{}, error) {
+		cIP := net.ParseIP(md.Get("X-Real-IP")[0])
+		if allowedSubnet.Contains(cIP) {
+			return nil, status.Error(codes.PermissionDenied, "subnet not allowed")
+		}
 
-	if allowedSubnet == nil {
 		return handler(ctx, req)
 	}
-
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Internal, "unable to get request metadata")
-	}
-
-	cIP := net.ParseIP(md.Get("X-Real-IP")[0])
-	if allowedSubnet.Contains(cIP) {
-		return nil, status.Error(codes.PermissionDenied, "subnet not allowed")
-	}
-
-	return handler(ctx, req)
 }
