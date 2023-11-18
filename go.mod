@@ -9,6 +9,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.1
 	github.com/masibw/goone v1.4.1
+	github.com/pkg/errors v0.8.1
 	github.com/shirou/gopsutil/v3 v3.23.6
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/tools v0.14.0

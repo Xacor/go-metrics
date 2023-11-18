@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+
+	"github.com/Xacor/go-metrics/proto"
 )
 
 const (
@@ -93,4 +95,24 @@ func (m *Metrics) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 	return json, nil
+}
+
+func (m *Metrics) ToProto() ([]*proto.Metric, error) {
+	metrics, err := readStruct(m)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]*proto.Metric, 0, len(metrics))
+	for i := range metrics {
+		res = append(res, &proto.Metric{
+			Id:    metrics[i].ID,
+			Type:  metrics[i].MType,
+			Delta: *metrics[i].Delta,
+			Value: *metrics[i].Value,
+		})
+	}
+
+	return res, nil
+
 }

@@ -10,12 +10,16 @@ import (
 	"time"
 
 	"github.com/Xacor/go-metrics/internal/agent/metric"
+	"github.com/Xacor/go-metrics/proto"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/metadata"
 )
 
 type PollerConfig struct {
 	MetricCh       <-chan metric.UpdateResult
 	Client         *http.Client
+	GrpcClient     proto.MetricsClient
 	Logger         *zap.Logger
 	PublicKey      *rsa.PublicKey
 	Address        string
@@ -27,6 +31,7 @@ type PollerConfig struct {
 type Poller struct {
 	metricCh       <-chan metric.UpdateResult
 	client         *http.Client
+	grpcClient     proto.MetricsClient
 	logger         *zap.Logger
 	publicKey      *rsa.PublicKey
 	address        string
@@ -41,6 +46,7 @@ func NewPoller(cfg *PollerConfig) *Poller {
 		address:        cfg.Address,
 		metricCh:       cfg.MetricCh,
 		client:         cfg.Client,
+		grpcClient:     cfg.GrpcClient,
 		logger:         cfg.Logger,
 		key:            cfg.Key,
 		rateLimit:      cfg.RateLimit,
@@ -96,6 +102,61 @@ func (p *Poller) Run(ctx context.Context, exitCh chan struct{}) {
 }
 
 func (p *Poller) Send(m metric.Metrics) error {
+	p.sendHTTP(m)
+	p.sendGRPC(m)
+	return nil
+}
+
+func (p *Poller) retry(fn func(metric.Metrics) error, arg metric.Metrics) {
+	attempts := 0
+	var err error
+	for i := 1; i < 5; i += 2 {
+		time.Sleep(time.Second * time.Duration(i))
+		if err = fn(arg); err == nil {
+			return
+		}
+		attempts++
+		p.logger.Error("attempt failed", zap.Error(err), zap.Int("attempt #", attempts))
+	}
+}
+
+func (p *Poller) sendGRPC(m metric.Metrics) error {
+	pb, err := m.ToProto()
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	if p.key != "" {
+		json, err := m.MarshalJSON()
+		if err != nil {
+			return err
+		}
+		sign, err := Sign(json, p.key)
+		if err != nil {
+			return err
+		}
+		metadata.AppendToOutgoingContext(ctx, "HashSHA256", string(sign))
+
+	}
+
+	ip, err := GetLocalIP()
+	if err != nil {
+		return err
+	}
+	metadata.AppendToOutgoingContext(ctx, "X-Real-IP", ip)
+
+	_, err = p.grpcClient.UpdateList(ctx, &proto.UpdateListRequest{Metric: pb})
+	if err != nil {
+		return errors.Wrap(err, "unable to make grpc call")
+	}
+
+	return nil
+}
+
+func (p *Poller) sendHTTP(m metric.Metrics) error {
 	json, err := m.MarshalJSON()
 	if err != nil {
 		return err
@@ -150,17 +211,4 @@ func (p *Poller) Send(m metric.Metrics) error {
 	defer resp.Body.Close()
 
 	return nil
-}
-
-func (p *Poller) retry(fn func(metric.Metrics) error, arg metric.Metrics) {
-	attempts := 0
-	var err error
-	for i := 1; i < 5; i += 2 {
-		time.Sleep(time.Second * time.Duration(i))
-		if err = fn(arg); err == nil {
-			return
-		}
-		attempts++
-		p.logger.Error("attempt failed", zap.Error(err), zap.Int("attempt #", attempts))
-	}
 }

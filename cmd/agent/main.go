@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,7 +15,11 @@ import (
 	"github.com/Xacor/go-metrics/internal/agent/config"
 	"github.com/Xacor/go-metrics/internal/agent/metric"
 	"github.com/Xacor/go-metrics/internal/logger"
+	"github.com/Xacor/go-metrics/proto"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/encoding/gzip"
 
 	poller "github.com/Xacor/go-metrics/internal/agent/http"
 )
@@ -63,6 +69,13 @@ func main() {
 		l.Error("failed to get public key", zap.Error(err))
 	}
 
+	conn, err := dialGRPC(cfg)
+	if err != nil {
+		l.Fatal("unable to open client connection", zap.Error(err))
+	}
+	defer conn.Close()
+	metricClient := proto.NewMetricsClient(conn)
+
 	pcfg := poller.PollerConfig{
 		ReportInterval: cfg.GetReportInterval(),
 		RateLimit:      cfg.GetRateLimit(),
@@ -70,6 +83,7 @@ func main() {
 		Key:            key,
 		MetricCh:       monitor.C,
 		Client:         &http.Client{},
+		GrpcClient:     metricClient,
 		Logger:         l,
 		PublicKey:      publicKey,
 	}
@@ -88,4 +102,36 @@ func main() {
 	<-exitCh
 
 	l.Info("gracefully shutting down")
+}
+
+func loadTLSCredentials(cafile string) (credentials.TransportCredentials, error) {
+	pemServerCA, err := os.ReadFile(cafile)
+	if err != nil {
+		return nil, err
+	}
+
+	certPool := x509.NewCertPool()
+	if !certPool.AppendCertsFromPEM(pemServerCA) {
+		return nil, fmt.Errorf("failed to add server CA's certificate")
+	}
+
+	config := &tls.Config{
+		RootCAs: certPool,
+	}
+
+	return credentials.NewTLS(config), nil
+}
+
+func dialGRPC(cfg config.Config) (*grpc.ClientConn, error) {
+	creds, err := loadTLSCredentials(cfg.CACertFile)
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := grpc.Dial(cfg.GRPCAddress, grpc.WithTransportCredentials(creds), grpc.WithDefaultCallOptions(grpc.UseCompressor(gzip.Name)))
+	if err != nil {
+		return nil, err
+	}
+
+	return conn, nil
 }

@@ -12,6 +12,8 @@ import (
 
 func (c *Config) ParseFlags() {
 	flag.StringVar(&c.Address, "a", "localhost:8080", "destination server address")
+	flag.StringVar(&c.GRPCAddress, "g", "localhost:8081", "destination server address")
+	flag.StringVar(&c.CACertFile, "ca", "", "ca cert file")
 	flag.StringVar(&c.LogLevel, "log", "info", "log level")
 	flag.StringVar(&c.Key, "k", "", "signature key")
 	flag.StringVar(&c.CryptoKeyPublicFile, "crypto-key", "", "path to RSA public key file in PEM format")
