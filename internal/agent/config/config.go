@@ -10,6 +10,7 @@ import (
 )
 
 type Config struct {
+	GRPCConfig
 	Address             string `env:"ADDRESS" json:"address"`
 	LogLevel            string `env:"LOG_LEVEL" json:"log_level"`
 	Key                 string `env:"KEY" json:"key"`
@@ -18,6 +19,11 @@ type Config struct {
 	ReportInterval      int    `env:"REPORT_INTERVAL" json:"report_interval"`
 	PollInterval        int    `env:"POLL_INTERVAL" json:"poll_interval"`
 	RateLimit           int    `env:"RATE_LIMIT" json:"rate_limit"`
+}
+
+type GRPCConfig struct {
+	GRPCAddress string `env:"G_ADDRESS" json:"g_address"`
+	CACertFile  string `env:"CA_CERT" json:"ca_cert"`
 }
 
 func (c *Config) GetURL() string {

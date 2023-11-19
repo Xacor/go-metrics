@@ -10,6 +10,7 @@ import (
 )
 
 type Config struct {
+	GRPCConfig
 	Address              string `env:"ADDRESS" json:"address"`
 	LogLevel             string `env:"LOG_LEVEL" json:"log_level"`
 	FileStoragePath      string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
@@ -17,8 +18,15 @@ type Config struct {
 	KeyFile              string `env:"KEY" json:"key_file"`
 	CryptoKeyPrivateFile string `env:"CRYPTO_KEY" json:"crypto_key"`
 	ConfigFile           string `env:"CONFIG" json:"-"`
+	TrustedSubnet        string `env:"TRUSTED_SUBNET" json:"trusted_subnet"`
 	StoreInterval        int    `env:"STORE_INTERVAL" json:"store_interval"`
 	Restore              bool   `env:"RESTORE" json:"restore"`
+}
+
+type GRPCConfig struct {
+	GAddress    string `env:"G_ADDRESS" json:"g_address"`
+	TLSCertFile string `env:"CERT_FILE" json:"cert_file"`
+	TLSKeyFile  string `env:"KEY_FILE" json:"key_file"`
 }
 
 func (c *Config) GetKey() (string, error) {

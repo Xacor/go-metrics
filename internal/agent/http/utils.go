@@ -5,6 +5,8 @@ import (
 	"compress/gzip"
 	"crypto/hmac"
 	"crypto/sha256"
+	"errors"
+	"net"
 )
 
 func Sign(data []byte, key string) ([]byte, error) {
@@ -47,4 +49,24 @@ func (s *Semaphore) Acquire() {
 
 func (s *Semaphore) Release() {
 	<-s.semaCh
+}
+
+func GetLocalIP() (string, error) {
+	ips, err := net.InterfaceAddrs()
+	if err != nil {
+		return "", err
+	}
+
+	for i := range ips {
+		if ips[i].String() != "127.0.0.1/8" {
+			ip, _, err := net.ParseCIDR(ips[i].String())
+			if err != nil {
+				return "", err
+			}
+
+			return ip.String(), nil
+		}
+	}
+
+	return "", errors.New("no IP available")
 }
